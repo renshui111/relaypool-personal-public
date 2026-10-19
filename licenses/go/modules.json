@@ -1,0 +1,101 @@
+[
+  {
+    "Module": "github.com/dustin/go-humanize",
+    "Version": "v1.0.1",
+    "Sum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=",
+    "Files": [
+      "LICENSE sha256:a973b4498c13eb74baa2a8e5c351426a6826f2fcdd909916dbe53ee2e755fd71"
+    ]
+  },
+  {
+    "Module": "github.com/google/uuid",
+    "Version": "v1.6.0",
+    "Sum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=",
+    "Files": [
+      "LICENSE sha256:0a8d61ed3cbfd5312326e8126c31ce9c627a283adc99131b56896d29ada04b2d"
+    ]
+  },
+  {
+    "Module": "github.com/mattn/go-isatty",
+    "Version": "v0.0.24",
+    "Sum": "h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsReI=",
+    "Files": [
+      "LICENSE sha256:08eab1118c80885fa1fa6a6dd7303f65a379fcb3733e063d20d1bbc2c76e6fa1"
+    ]
+  },
+  {
+    "Module": "github.com/ncruces/go-strftime",
+    "Version": "v1.0.0",
+    "Sum": "h1:HMFp8mLCTPp341M/ZnA4qaf7ZlsbTc+miZjCLOFAw7w=",
+    "Files": [
+      "LICENSE sha256:38ae43959daf953a393a585b2988672cb65a5a541aca0d0be5e72595a0a16883"
+    ]
+  },
+  {
+    "Module": "github.com/remyoudompheng/bigfft",
+    "Version": "v0.0.0-20230129092748-24d4a6f8daec",
+    "Sum": "h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=",
+    "Files": [
+      "LICENSE sha256:dd26a7abddd02e2d0aba97805b31f248ef7835d9e10da289b22e3b8ab78b324d"
+    ]
+  },
+  {
+    "Module": "golang.org/x/sys",
+    "Version": "v0.48.0",
+    "Sum": "h1:bbX/i/6MgT9BVLM9RT1thmxL04yeTAhbEz4SyadbXoo=",
+    "Files": [
+      "LICENSE sha256:911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "PATENTS sha256:96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    ]
+  },
+  {
+    "Module": "modernc.org/libc",
+    "Version": "v1.77.1",
+    "Sum": "h1:Ct8j47QtiZ1Enj2DtFXQtUqrPCAjdCmPjtCuvrYQ0Hs=",
+    "Files": [
+      "LICENSE sha256:95ff867eb55a56935fa7492406cfa953fb7c13ca73f4c0a86ae05756b4605600",
+      "LICENSE-3RD-PARTY.md sha256:f597097efe3d97021f89170746bd3a0fb9a8b6fb26b82043ed68a4e0283bee6c",
+      "testdata/nsz.repo.hu/libc-test/src/math/crlibm/COPYING sha256:dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+    ]
+  },
+  {
+    "Module": "modernc.org/mathutil",
+    "Version": "v1.7.1",
+    "Sum": "h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=",
+    "Files": [
+      "LICENSE sha256:bfa9bf72a72ca009fd62a8f84fca3dca67e51d93af96352723646599898b6cf5",
+      "mersenne/LICENSE sha256:c05630f9ca899ea094620d37daea6ba66f99adbf9268ea5fea9db607e1102bd9"
+    ]
+  },
+  {
+    "Module": "modernc.org/memory",
+    "Version": "v1.12.1",
+    "Sum": "h1:nFMiWrpStgZczNl6XI9GnIk/rWhYIyHGUaR04pGbp9g=",
+    "Files": [
+      "LICENSE sha256:59895e669f48f168b6b858358f6005779cdf40a265f7828813061b56af67b496",
+      "LICENSE-GO sha256:2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "LICENSE-LOGO sha256:5ae5bee3072a841376451b48d8cfcec7188e10543926d5870828d36c8a750dc5",
+      "LICENSE-MMAP-GO sha256:c2eba69f20d05414538c3a5df7694dde392e065ff70882e1625e90f5d6659fff"
+    ]
+  },
+  {
+    "Module": "modernc.org/sqlite",
+    "Version": "v1.60.1",
+    "Sum": "h1:/blz53O951KWFOso4QQvEs/Fq6cDBKLtMVrYNSeJVKw=",
+    "Files": [
+      "LICENSE sha256:c6fe05491a60ae13bcd223088d2705e36dede24e5587226231d2459ada5c4822",
+      "LICENSE-3RD-PARTY.md sha256:b4366b9c27a9364633e015011a231913ed19bf1228f335bf617e50a6f7b168a6",
+      "LICENSE-SQLITE sha256:8438c9c89b849131ead81d5435cb97fcf052df5b0b286dda8a2d4c29e6cb3fd0",
+      "LICENSE-SQLITE_VEC sha256:6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea"
+    ]
+  },
+  {
+    "Module": "go-runtime",
+    "Version": "go version go1.26.9 linux/amd64",
+    "Sum": "",
+    "Files": [
+      "LICENSE sha256:911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "PATENTS sha256:96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    ]
+  }
+]

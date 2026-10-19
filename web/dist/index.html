@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#151c2c">
+<meta name="robots" content="noindex, nofollow">
+<title>relaypool · 号池工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f6bed'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Segoe UI,sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ER%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="workspace.css">
+</head>
+<body>
+<div id="app" v-cloak>
+<a v-if="authed" class="skip-link" href="#main-content" @click.prevent="$event.target.ownerDocument.getElementById('main-content').focus()">跳转到主内容</a>
+
+  <!-- ======================= 登录门 ======================= -->
+  <!--
+    这两个顶层分支刻意用真实的 <div> 而不是 <template>：petite-vue 的 v-if
+    在模板片段上会用一个注释节点做锚点，而顶层片段在兄弟分支切换时锚点会
+    随父 fragment 一起被摘掉，导致 "Cannot read properties of null
+    (reading 'insertBefore')"。用真实元素承载就没有这个问题。
+  -->
+  <div v-if="!authed" class="gate-wrap">
+    <section class="gate-art" aria-label="relaypool 工作台介绍">
+      <a class="gate-brand" href="#/overview"><svg class="brand-symbol" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M7 24V8h10a6 6 0 0 1 0 12h-4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="m17 18 8 7" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg><strong>relaypool</strong></a>
+      <div class="gate-art-copy"><span class="eyebrow">你的模型，统一连接</span><h2>让每一次调用，<br>都井然有序。</h2><p>从账号到模型，从对话到调用记录。<br>在一个工作台里，掌握你的 AI 网关。</p></div>
+      <div class="gate-flow" aria-hidden="true"><span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3"/></svg> 账号池</span><i>→</i><span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg> 统一调度</span><i>→</i><span><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 10 10 0 0 1-4-.8L3 21l1.7-5A8.4 8.4 0 0 1 3 11.5a9 9 0 0 1 18 0Z"/><path d="M8 11h8M8 7.5h5"/></svg> 模型调用</span></div>
+      <div class="gate-art-foot">一个入口 · 多渠道接入 · 清晰掌控</div>
+    </section><div class="gate">
+      <span class="eyebrow">欢迎回来</span><h1>连接你的工作台</h1>
+      <div class="sub">连接你的 AI 网关，继续管理账号与模型</div>
+
+      <div v-if="gate.health" class="note info" style="margin-bottom:14px">
+        后端在线 · v{{ gate.health.version }} · 已运行 {{ gate.health.uptime }}
+      </div>
+      <div v-else class="note warn" style="margin-bottom:14px">
+        未探测到后端{{ conn.connError ? "：" + conn.connError : "" }} ，请先运行 Docker 容器
+      </div>
+
+      <div class="field">
+        <label for="field-1">管理密钥</label>
+        <input id="field-1" type="password" autocomplete="current-password" v-model="gate.keyInput" placeholder="rp_..." @keydown.enter="gate.submit()" autofocus>
+        <div class="hint">在本机终端执行 docker exec relaypool /app/relaypool -show-api-key 查看管理密钥。</div>
+      </div>
+      <details class="gate-advanced"><summary>自定义后端地址</summary><div class="field">
+        <label for="field-2">后端地址（可选）</label>
+        <input id="field-2" type="text" v-model="gate.baseInput" :placeholder="'默认 ' + ($base || 'http://127.0.0.1:8787')">
+        <div class="hint">控制台由后端自身服务时留空即可</div>
+      </div></details>
+      <button class="btn primary" style="width:100%" :disabled="gate.busy || !gate.keyInput.trim()" @click="gate.submit()">
+        {{ gate.busy ? "正在验证连接…" : "进入工作台" }}
+      </button>
+      <div v-if="gate.error" class="note error mt8" style="margin-bottom:0">{{ gate.error }}</div>
+
+      <div class="footnote">
+        密钥仅保存在当前浏览器会话；可在连接设置中清除。请求发送至你设置的后端地址。
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= 主界面 ======================= -->
+  <div v-else class="layout">
+
+      <!-- 侧边栏 -->
+      <aside class="side" aria-label="工作台导航">
+        <a class="brand" href="#/overview"><span class="brand-mark"><svg class="brand-symbol" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M7 24V8h10a6 6 0 0 1 0 12h-4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="m17 18 8 7" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg></span><span>relaypool<small>模型网关工作台</small></span></a>
+        <nav class="nav" aria-label="主导航">
+          <div class="nav-label">工作空间</div>
+          <a href="#/overview" :class="{active: route==='overview'}" :aria-current="route==='overview' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>概览</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <a href="#/chat" :class="{active: route==='chat'}" :aria-current="route==='chat' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 10 10 0 0 1-4-.8L3 21l1.7-5A8.4 8.4 0 0 1 3 11.5a9 9 0 0 1 18 0Z"/><path d="M8 11h8M8 7.5h5"/></svg><span>聊天</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <a href="#/accounts" :class="{active: route==='accounts' || route==='account'}" :aria-current="route==='accounts' || route==='account' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3"/></svg><span>账号池</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <div class="nav-label">管理与监控</div>
+          <a href="#/keys" :class="{active: route==='keys'}" :aria-current="route==='keys' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="5"/><path d="m11.5 12.5 8 8 2-2-2-2 1.5-1.5-2-2-1.5 1.5-3-3"/></svg><span>API 密钥</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          
+          <a href="#/logs" :class="{active: route==='logs'}" :aria-current="route==='logs' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg><span>请求日志</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <a href="#/armor" :class="{active: route==='armor'}" :aria-current="route==='armor' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg><span>破甲预设</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <div class="nav-label">系统配置</div>
+          
+          <a href="#/settings" :class="{active: route==='settings'}" :aria-current="route==='settings' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="3" fill="currentColor" stroke="none"/></svg><span>连接设置</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+        </nav>
+        <div class="side-foot"><div class="side-connection"><span class="dot" :class="{'is-warning':!!conn.connError}"></span>{{ conn.connError ? '连接异常' : conn.health ? '服务已连接' : '正在检查连接' }}</div><div class="side-version" :title="conn.health ? conn.health.version : ''">{{ conn.health ? conn.health.version : '等待服务响应' }}</div><a href="#/settings">查看连接详情 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a></div>
+      </aside>
+
+      <!-- 主区 -->
+      <main class="main" id="main-content" tabindex="-1" :class="{'main-chat':route==='chat'}"><header class="workspace-bar"><div class="workspace-identity"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg><span>工作空间</span><span class="breadcrumb">/</span><b>{{ pageTitle }}</b></div><div class="workspace-tools"><span class="workspace-badge" :class="{'is-warning':!!conn.connError}"><span class="status-dot"></span>{{ conn.connError ? '连接异常' : conn.accessBadge ? conn.accessBadge.label : '管理控制台' }}</span><a class="profile-button" href="#/settings" aria-label="打开连接设置"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="3" fill="currentColor" stroke="none"/></svg></a></div></header>
+
+        <!-- 概览按当前状态、调用统计、排查入口组织，所有数字均来自实际数据。 -->
+        <div v-if="route==='overview' && overview" class="route overview-page">
+          <div class="page-head overview-heading">
+            <div class="page-heading"><h1>概览</h1><p class="desc">{{ overview.lastUpdated ? '账号状态更新于 '+$fmt.time(overview.lastUpdated) : overview.refreshing ? '正在读取当前状态' : '账号状态未读取' }}</p></div><span class="spacer"></span>
+            <label class="overview-refresh"><input id="overview-auto-refresh" type="checkbox" :checked="overview.autoRefresh" @change="overview.setAutoRefresh($event.target.checked)"> 每 30 秒刷新</label>
+            <button id="overview-refresh" class="btn" :disabled="overview.refreshing || overview.statsLoading" @click="overview.reload()">{{ overview.refreshing ? '刷新中…' : '刷新数据' }}</button>
+          </div>
+          <div v-if="overview.error" class="note error" role="alert">{{ overview.error }}。上次数据仅供参考，请刷新重试。</div>
+          <div v-if="overview.failedSections.length" id="overview-partial-error" class="note warn" role="alert">{{ overview.failedSections.join('、') }}读取失败；未更新的内容仅供参考，请刷新重试。</div>
+          <section class="overview-status overview-intro">
+            <div><span class="section-kicker">运行状态</span><h2>{{ overview.serviceTitle }}</h2><p>{{ overview.serviceNote }}</p></div>
+            <div class="overview-actions"><a href="#/chat" class="btn primary">开始聊天 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a href="#/accounts" class="btn">管理账号</a><a href="#/logs" class="btn link">查看调用记录 →</a></div>
+          </section>
+          <div class="grid cols-4 overview-counts">
+            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.enabled : '—' }}<small> / {{ overview.lastUpdated ? overview.counts.total : '—' }}</small></div><div class="label">启用 / 全部账号</div></div>
+            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.ready : '—' }}</div><div class="label">可调度账号 · {{ overview.counts.cooldown }} 个冷却中</div></div>
+            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.models : '—' }}</div><div class="label">目录型号（去重）</div></div>
+            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.inflight : '—' }}</div><div class="label">当前进行中的调用</div></div>
+          </div>
+          <div class="panel overview-issues" v-if="overview.issues.length">
+            <div class="panel-head">需要关注 <span class="badge b-warn">{{ overview.issues.length }} 个账号</span><span class="spacer"></span><a href="#/accounts">查看全部 →</a></div>
+            <div class="panel-body"><a v-for="item in overview.issues.slice(0,4)" :key="item.id" :href="'#/account/'+encodeURIComponent(item.id)" class="overview-issue"><b>{{ item.name }}</b><span>{{ item.detail }}</span><span aria-hidden="true">→</span></a></div>
+          </div>
+
+          <div class="panel" id="overview-statistics">
+            <div class="panel-head"><b>调用统计</b><span class="dim overview-panel-note">按请求发起时间统计 · 成功率仅计算已完成请求</span><span class="spacer"></span><div class="win-switch"><button v-for="w in overview.windowOptions" :key="w.key" class="win-btn" :class="{active:w.key===overview.window}" :disabled="overview.statsLoading || overview.refreshing" @click="overview.setWindow(w.key)">{{ w.label }}</button></div></div>
+            <div class="panel-body">
+              <div v-if="overview.statsError" class="note error" role="alert">统计更新失败：{{ overview.statsError }}。{{ overview.stats ? '以下保留上次的 '+overview.windowLabel+' 统计。' : '暂无可读统计。' }} <button class="btn link small" :disabled="overview.statsLoading || overview.refreshing" @click="overview.loadStats()">重试</button></div>
+              <div class="metric-grid overview-stat-metrics">
+                <div class="metric"><div class="metric-label">总请求</div><div class="metric-value">{{ $fmt.compact(overview.summary.requests) }}</div><div class="metric-sub">{{ overview.stats ? (overview.summary.successes || 0)+' 成功 · '+(overview.summary.failures || 0)+' 失败 · '+(overview.summary.in_flight || 0)+' 进行中' : '统计尚未读取' }}</div></div>
+                <div class="metric"><div class="metric-label">成功率</div><div class="metric-value">{{ overview.completed ? $fmt.pct(overview.summary.success_pct) : '—' }}</div><div class="metric-sub">{{ overview.stats ? overview.completed+' 个已完成请求' : '统计尚未读取' }}</div></div>
+                <div class="metric"><div class="metric-label">平均首字等待</div><div class="metric-value">{{ overview.summary.ttfb_samples ? overview.duration(overview.summary.ttfb_avg_ms) : '—' }}</div><div class="metric-sub">从发送到收到首段回复</div></div>
+                <div class="metric"><div class="metric-label">95% 请求完成耗时</div><div class="metric-value">{{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_p95_ms) : '—' }}</div><div class="metric-sub">平均 {{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_avg_ms) : '—' }}</div></div>
+              </div>
+              <div id="overview-log-scope" class="note info">{{ overview.retentionNote }}<span v-if="overview.summary.oldest_request_at"> 当前窗口内现有记录：{{ $fmt.timeFull(overview.summary.oldest_request_at) }} 至 {{ $fmt.timeFull(overview.summary.newest_request_at) }}。</span></div>
+              <div id="overview-token-statistics" class="metric-grid overview-stat-metrics overview-token-metrics">
+                <div class="metric"><div class="metric-label">Token 总量</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.total_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.total_tokens) : '—' }}</div><div class="metric-sub">{{ !overview.stats ? '统计尚未读取' : !overview.summary.requests ? '暂无调用记录' : overview.summary.tokens_reported ? '仅累计已上报用量' : '上游用量未上报' }}</div></div>
+                <div class="metric"><div class="metric-label">输入 Token</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.prompt_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.prompt_tokens) : '—' }}</div><div class="metric-sub">问题与对话上下文</div></div>
+                <div class="metric"><div class="metric-label">输出 Token</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.completion_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.completion_tokens) : '—' }}</div><div class="metric-sub">模型生成的回复</div></div>
+                <div class="metric"><div class="metric-label">用量上报覆盖率</div><div class="metric-value">{{ overview.summary.requests ? $fmt.pct(overview.tokenCoverage) : '—' }}</div><div class="metric-sub">{{ overview.stats ? (overview.summary.tokens_reported || 0)+' / '+(overview.summary.requests || 0)+' 个请求已上报' : '统计尚未读取' }}</div></div>
+              </div>
+              <div class="chart-head overview-chart-head"><b>调用趋势</b><span class="dim">{{ overview.windowLabel }} · {{ overview.chartTimezone }}</span><span class="spacer"></span><div class="win-switch"><button class="win-btn" :class="{active:overview.chartMode==='requests'}" @click="overview.selectChartMode('requests')">请求量</button><button class="win-btn" :class="{active:overview.chartMode==='tokens'}" @click="overview.selectChartMode('tokens')">Token</button><button class="win-btn" :class="{active:overview.chartMode==='latency'}" @click="overview.selectChartMode('latency')">响应耗时</button></div></div>
+              <div v-if="overview.chartHasData && overview.series.length" id="overview-trend">
+                <div class="overview-chart-caption"><span>纵轴：{{ overview.chartUnit }} · 峰值 {{ $fmt.compact(overview.chart.max) }}</span><span v-for="line in overview.chartLines" :key="line.key" class="chart-legend"><i :style="{background:line.color}"></i>{{ line.label }}</span></div>
+                <svg class="chart overview-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" :aria-label="'调用趋势，单位'+overview.chartUnit">
+                  <path class="chart-gridline" d="M0,6 H100 M0,50 H100 M0,94 H100"></path>
+                  <g v-for="line in overview.chart.paths" :key="line.key"><path :class="line.cls" :style="{stroke:line.color}" :d="line.d"></path><circle v-for="sample in line.samples" :key="sample.index" :cx="sample.x" :cy="sample.y" r="0.4" :fill="line.color"></circle></g>
+                  <path v-if="overview.chartIndex!==null" class="chart-crosshair" :d="'M'+(overview.chartIndex*overview.chart.step)+',0 V100'"></path>
+                  <rect v-for="point in overview.chart.points" :key="point.index" :x="Math.max(0,point.x-overview.chart.step/2)" y="0" :width="overview.chart.step" height="100" fill="transparent" tabindex="0" role="button" :aria-label="point.label+'，查看统计'" @mouseenter="overview.chartIndex=point.index" @focus="overview.chartIndex=point.index" @click="overview.chartIndex=point.index" @keydown.enter="overview.chartIndex=point.index" @keydown.space.prevent="overview.chartIndex=point.index"></rect>
+                </svg>
+                <div class="chart-axis"><span>{{ overview.series[0].label }}</span><span>{{ overview.series[overview.series.length-1].label }}</span></div>
+                <div class="overview-point" aria-live="polite"><span v-if="overview.selectedPoint"><b>{{ overview.selectedPoint.label }}</b> · {{ overview.selectedPoint.successes }} 成功 / {{ overview.selectedPoint.failures }} 失败 / {{ overview.selectedPoint.in_flight || 0 }} 进行中 · Token {{ overview.selectedPoint.tokens_reported ? $fmt.compact(overview.selectedPoint.total_tokens) : '未上报' }} · 平均耗时 {{ overview.selectedPoint.latency_samples ? overview.duration(overview.selectedPoint.avg_latency_ms) : '无样本' }}</span><span v-else class="dim">指向或点选图表，查看该时段的详细数字。</span></div>
+              </div>
+              <div v-else class="overview-chart-empty">{{ overview.statsLoading && !overview.stats ? '正在加载统计…' : overview.chartEmpty }}</div>
+              <p class="hint" v-if="overview.stats">统计截止 {{ $fmt.timeFull(overview.stats.until) }}；Token 只累计上游已上报的用量，不等于余额或费用。</p>
+            </div>
+          </div>
+
+          <div class="grid cols-2">
+            <div class="panel"><div class="panel-head">账号状态分布<span class="spacer"></span><a href="#/accounts">账号池 →</a></div><div v-if="overview.lastUpdated" class="panel-body overview-pool-distribution"><div class="overview-ring" :style="overview.ringStyle" role="img" :aria-label="'账号状态分布，共'+overview.counts.total+'个账号'"><div><b>{{ overview.counts.total }}</b><span>全部账号</span></div></div><div class="overview-state-legend"><div v-for="s in overview.distribution" :key="s.key"><i :style="{background:s.color}"></i><span>{{ s.label }}</span><b>{{ s.value }}</b></div><p class="hint">调度状态不代表全部模型已实测通过。</p></div></div><div v-else class="panel-body dim">账号状态未读取，请刷新重试。</div></div>
+            <div class="panel"><div class="panel-head">已接入渠道<span class="spacer"></span><span class="dim">{{ overview.lastUpdated ? overview.channels.length+' 个渠道 / 地区组合' : '账号状态未读取' }}</span></div><div class="panel-body"><div v-if="!overview.channels.length" class="dim">{{ overview.lastUpdated ? '添加账号后显示渠道分布。' : '账号状态未读取，请刷新重试。' }}</div><div v-for="c in overview.channels" :key="c.key" class="overview-channel"><div><b>{{ c.label }}</b><span>{{ c.ready }} 可调度 / {{ c.total }} 个账号</span></div><div class="overview-channel-bar"><i v-for="s in overview.distribution" :key="s.key" :style="{width:overview.share(c[s.key],c.total)+'%',background:s.color}" :title="s.label+' '+c[s.key]"></i></div></div></div></div>
+          </div>
+          <div class="grid cols-2">
+            <div class="panel"><div class="panel-head">渠道调用分布<span class="dim overview-panel-note">{{ overview.windowLabel }}</span></div><div class="panel-body"><div v-if="!(overview.stats && overview.stats.providers.length)" class="dim">{{ overview.stats ? '所选窗口内暂无渠道调用。' : '统计暂不可用。' }}</div><div v-for="p in (overview.stats && overview.stats.providers || [])" :key="p.provider" class="prov-row"><div class="prov-head"><b>{{ overview.providerLabel(p.provider) }}</b><span class="spacer"></span><span>{{ p.requests }} 次 · {{ $fmt.pct(overview.share(p.requests,overview.summary.requests)) }}</span></div><div class="prov-bar"><div class="prov-bar-fill" :style="{width:overview.share(p.requests,overview.summary.requests)+'%'}"></div></div><div class="dim overview-small">{{ p.successes }} 成功 · {{ p.failures }} 失败 · {{ p.in_flight || 0 }} 进行中</div></div></div></div>
+            <div class="panel"><div class="panel-head">模型调用排行<span class="dim overview-panel-note">前 8 个型号</span></div><div class="panel-body"><div v-if="!(overview.stats && overview.stats.models.length)" class="dim">{{ overview.stats ? '聊天或客户端调用后会显示模型排行。' : '统计暂不可用。' }}</div><div v-for="(m,i) in (overview.stats && overview.stats.models || []).slice(0,8)" :key="m.model" class="model-row"><div class="model-rank">{{ i+1 }}</div><div class="model-main"><div class="model-name mono" :title="m.model">{{ m.model }}</div><div class="model-bar"><div class="model-bar-fill" :style="{width:overview.share(m.requests,overview.stats.models[0].requests)+'%'}"></div></div><div class="dim overview-small">{{ m.successes }} 成功 · {{ m.failures }} 失败 · {{ m.in_flight || 0 }} 进行中</div></div><div class="model-num">{{ m.requests }} 次</div></div></div></div>
+          </div>
+          <div class="grid cols-2">
+            <div class="panel"><div class="panel-head">失败原因分布<span class="spacer"></span><a href="#/logs">查看日志 →</a></div><div class="panel-body"><div v-if="!(overview.stats && overview.stats.errors.length)" class="dim">{{ overview.stats ? '所选窗口内没有失败记录。' : '统计暂不可用。' }}</div><div v-for="e in (overview.stats && overview.stats.errors || [])" :key="e.kind" class="err-row"><div class="err-head"><b>{{ $errKind(e.kind) }}</b><span class="spacer"></span><span>{{ e.count }} 次 · {{ $fmt.pct(e.share) }}</span></div><div class="err-bar"><div class="err-bar-fill" :style="{width:Math.min(100,e.share)+'%'}"></div></div></div></div></div>
+            <div class="panel"><div class="panel-head">最近调用<span class="dim overview-panel-note">最新 5 条，不随统计窗口过滤</span><span class="spacer"></span><a href="#/logs">全部 →</a></div><div class="panel-body"><div v-if="overview.sectionErrors.recent" class="note warn">{{ overview.recent.length ? '最近调用更新失败，已保留此前记录。' : '最近调用暂不可用，请刷新重试。' }}</div><div v-if="!overview.recent.length && !overview.sectionErrors.recent" class="dim">暂无请求日志。发送一条聊天消息后可在此查看结果。</div><a v-for="r in overview.recent" :key="r.id" href="#/logs" class="overview-recent"><div><b class="mono">{{ r.mapped_model || r.requested_model || '未识别型号' }}</b><small>{{ $fmt.time(r.created_at) }} · {{ overview.duration(r.latency_ms) }}</small></div><span class="badge" :class="r.status==='ok'?'b-ok':r.status==='streaming'?'b-warn':'b-off'">{{ r.status==='ok'?'成功':r.status==='streaming'?'进行中':'失败' }}</span></a></div></div>
+          </div>
+          <details class="fold overview-account-details"><summary>账号明细 · {{ overview.lastUpdated ? overview.counts.total : '—' }} 个（展开查看）</summary><div class="table-scroll"><table class="tbl"><thead><tr><th>账号</th><th>渠道</th><th>状态</th><th>凭证</th><th>在途</th></tr></thead><tbody><tr v-for="a in overview.accounts" :key="a.id" class="rowlink" @click="go('account',a.id)"><td><b>{{ a.name || a.id }}</b></td><td>{{ overview.providerLabel(a.provider) }} / {{ a.region }}</td><td>{{ $fmt.accountStatus(a) }}</td><td>{{ !a.has_credential ? '未配置' : a.ready===false ? '验证异常' : a.ready===true ? '验证通过' : '待验证' }}</td><td>{{ a.in_flight || 0 }}</td></tr></tbody></table></div></details>
+          <div class="overview-settings">
+            <a href="#/armor"><span>破甲预设</span><b>{{ overview.armorLabel }}</b><small>{{ overview.armor ? overview.armor.data.length+' 个预设 · 按实际型号匹配' : '预设目录暂不可读' }}</small></a>
+            <a href="#/accounts"><span>自动领取</span><b>{{ overview.lastUpdated ? overview.checkinCounts.active+' / '+overview.checkinCounts.eligible+' 个账号' : '账号状态未读取' }}</b><small>{{ overview.scheduleLabel }}{{ overview.schedule ? ' · '+overview.scheduleTimezone : '' }}</small></a>
+            <a href="#/settings"><span>连接入口</span><b>{{ conn.accessBadge ? conn.accessBadge.label : '状态未知' }}</b><small>查看地址与连接设置</small></a>
+          </div>
+          <div class="overview-footer"><span>{{ overview.version ? '版本 '+overview.version.version : '版本暂不可读' }}</span><span>概览刷新仅查询数据，不自动发送测试消息。</span></div>
+        </div>
+
+        <!-- 完整聊天工作区；正文按文本显示，避免模型输出执行网页代码。 -->
+        <div v-if="route==='chat' && chat" class="route chat-route" @vue:mounted="chat?.mounted()" @vue:unmounted="chat?.unmounted()">
+          <div class="page-head"><div class="page-heading"><h1>聊天</h1><p class="desc">使用你的号池，随时开始对话</p></div><span class="spacer"></span><button class="btn" :disabled="chat.busy || chat.loading" @click="chat.reload()">{{ chat.loading ? '读取中…' : '刷新模型' }}</button></div>
+          <div class="chat-workspace" :class="{'history-expanded':chat.historyOpen}">
+            <aside class="chat-history" :class="{'history-expanded':chat.historyOpen}">
+              <button class="btn primary" :disabled="chat.busy" @click="chat.create()">＋ 新对话</button>
+              <button class="btn chat-history-toggle" :aria-expanded="chat.historyOpen" @click="chat.historyOpen=!chat.historyOpen">{{ chat.historyOpen ? '收起会话' : '会话 · '+chat.conversations.length }}</button>
+              <input id="chat-history-search" class="chat-history-search" type="search" v-model="chat.historyQuery" placeholder="搜索会话" aria-label="搜索会话标题">
+              <div class="chat-history-list"><div v-if="!chat.filteredConversations.length" class="hint">没有匹配的会话</div><button v-for="c in chat.filteredConversations" :key="c.id" class="chat-history-item" :class="{active:chat.activeID===c.id}" :disabled="chat.busy" @click="chat.select(c.id)"><b>{{ c.title }}</b><small>{{ Math.floor(c.messages.length/2) }} 轮对话{{ c.draft ? ' · 有草稿' : '' }}</small></button></div>
+              <div class="hint">历史保存在此浏览器。公共设备使用后请删除会话。</div>
+              <div class="chat-history-actions"><button class="btn small" @click="chat.export()">导出</button><button class="btn small" :disabled="chat.busy" @click="chat.requestRemove()">删除当前</button></div>
+              <div v-if="chat.pendingDelete" class="note warn chat-delete-confirm">删除“{{ chat.current.title }}”及其草稿？<div><button id="chat-delete-confirm" class="btn small danger" :disabled="chat.busy" @click="chat.remove()">确认删除</button><button class="btn small" @click="chat.pendingDelete=false">取消</button></div></div>
+            </aside>
+            <section class="chat-conversation" aria-label="当前对话">
+              <div class="chat-session-head"><div v-if="!chat.renaming"><b :title="chat.current.title">{{ chat.current.title }}</b><small>{{ Math.floor(chat.current.messages.length/2) }} 轮对话 · 历史保存在本浏览器</small></div><form v-else class="chat-title-form" @submit.prevent="chat.rename()"><input id="chat-title-input" type="text" v-model="chat.titleInput" maxlength="60" aria-label="会话名称" @keydown.esc="chat.renaming=false"><button class="btn small" :disabled="!chat.titleInput.trim()">保存</button><button type="button" class="btn small" @click="chat.renaming=false">取消</button></form><button v-if="!chat.renaming" id="chat-rename" class="btn link small" :disabled="chat.busy" @click="chat.beginRename()">重命名</button></div>
+              <button class="chat-model-toggle" :aria-expanded="chat.modelControlsOpen" aria-controls="chat-model-controls" @click="chat.modelControlsOpen=!chat.modelControlsOpen"><span>{{ chat.current.model || '请选择模型' }}</span><small>{{ chat.modelControlsOpen ? '收起设置 ↑' : '模型与账号 ↓' }}</small></button>
+              <div id="chat-model-controls" class="chat-toolbar" :class="{'controls-open':chat.modelControlsOpen}">
+                <div class="field"><label for="chat-account">使用账号</label><select id="chat-account" v-model="chat.current.account" :disabled="chat.busy || chat.loading" @change="chat.accountChanged()"><option value="">号池自动调度</option><option v-if="chat.current.account && (!chat.selectedAccount || !chat.selectedAccount.enabled)" :value="chat.current.account" disabled>{{ chat.accountName }}（不可用）</option><option v-for="a in chat.enabledAccounts" :key="a.id" :value="a.id">{{ a.name }} · {{ a.provider }}</option></select><p class="hint">{{ chat.current.account ? '固定此账号，失败不会自动换号' : '由号池选择可用账号' }}</p></div>
+                <div class="field"><label for="chat-model">模型 <small class="dim">{{ chat.filteredModels.length }} / {{ chat.availableModels.length }}</small></label><input id="chat-model-search" v-show="!chat.manualModel" type="search" v-model="chat.modelQuery" :disabled="chat.busy || chat.loading" placeholder="搜索型号，例如 Claude、GPT" aria-label="搜索模型型号"><select id="chat-model" v-model="chat.current.model" v-show="!chat.manualModel" :disabled="chat.busy || chat.loading" @change="chat.modelChanged()"><option value="" disabled>{{ chat.availableModels.length ? '请选择模型' : '暂无目录，请刷新或手动填写' }}</option><option v-if="chat.current.model && !chat.modelVisible" :value="chat.current.model">{{ chat.current.model }}{{ chat.modelListed ? '（当前选择）' : '（手动型号）' }}</option><option v-for="m in chat.filteredModels" :key="m.id" :value="m.id">{{ m.id }}</option></select><input id="chat-model-manual" v-if="chat.manualModel" type="text" v-model="chat.current.model" :disabled="chat.busy" @change="chat.modelChanged()" placeholder="填写实际模型 ID" aria-label="手动填写模型"><button class="btn link small" :disabled="chat.busy" @click="chat.toggleModelInput()">{{ chat.manualModel ? '返回模型列表' : '手动填写型号' }}</button></div>
+              </div>
+              <details id="chat-armor-status" class="chat-armor-status"><summary>预设诊断 · {{ chat.armorPreviewBusy ? '检查中' : chat.armorPreviewError ? '读取失败' : chat.armorPreview?.effective ? '将加入请求' : chat.armorPreview?.active_reason || '待检查' }}</summary><div class="chat-armor-detail"><div class="toolbar"><b>预设诊断</b><button class="btn link small" :disabled="chat.busy || chat.armorPreviewBusy" @click="chat.inspectArmor()">刷新诊断</button><a href="#/armor">配置预设</a></div><p>{{ chat.armorPreviewBusy ? '正在检查本型号…' : chat.armorPreviewError || chat.armorPreview?.active_reason || '请选择型号并刷新诊断' }}</p><p class="hint" v-if="chat.armorPreview?.applied">候选：{{ chat.armorPreview.preset }} · 正文 {{ chat.armorPreview.bytes }} 字节 · 实际结果以本条回复诊断为准</p><p class="hint">预设只改变请求指令。聊天台没有文件或终端执行器，提示词不能让它自动执行外部项目。</p></div></details>
+              <details class="chat-system"><summary>对话设置 · 输出上限 {{ chat.maxTokens }} Token</summary><div class="chat-settings-body"><div class="field chat-token-field"><label for="chat-tokens">输出上限</label><select id="chat-tokens" v-model="chat.maxTokens" :disabled="chat.busy" @change="chat.persist()"><option value="1024">1024</option><option value="2048">2048</option><option value="4096">4096</option><option value="8192">8192</option></select></div><label class="chat-usage-setting"><input id="chat-request-usage" type="checkbox" v-model="chat.requestUsage" :disabled="chat.busy" @change="chat.persist()"> 请求 Token 用量</label><p class="hint">兼容 API 渠道请求流式用量；中转站拒绝该参数时可关闭。未上报的用量不估算。</p><label for="chat-system-input">对话指令</label><textarea id="chat-system-input" v-model="chat.current.system" maxlength="12000" :disabled="chat.busy" @change="chat.persist()" placeholder="可选：例如请用简体中文回答。当前密钥开启破甲时以模型匹配预设为准。"></textarea><p class="hint">当前密钥获准并开启破甲、且型号匹配时应用预设；auto、default 等自动选型可能没有匹配。每条回复显示本次实际应用的预设，不代表已突破模型限制。</p></div></details>
+              <div class="chat-scroll-wrap"><div id="chat-messages" class="chat-messages" aria-live="polite" @scroll="chat.onScroll()">
+                <div v-if="!chat.current.messages.length" class="chat-empty"><span class="chat-empty-symbol"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 10 10 0 0 1-4-.8L3 21l1.7-5A8.4 8.4 0 0 1 3 11.5a9 9 0 0 1 18 0Z"/><path d="M8 11h8M8 7.5h5"/></svg></span><span class="eyebrow">新的灵感，从这里开始</span><h2>今天想聊些什么？</h2><p>选择一个模型，开始你的第一条消息。<br>账号调度、调用记录，都由工作台统一管理。</p><a v-if="!chat.accounts.length" href="#/accounts" class="btn">添加第一个账号</a></div>
+                <article v-for="m in chat.current.messages" :key="m.id" class="chat-message" :class="{user:m.role==='user'}">
+                  <div class="chat-message-head"><b>{{ m.role==='user'?'你':'助手' }}</b><span v-if="m.model" class="dim mono">{{ m.model }}</span><span v-if="m.armor" class="badge b-outline">{{ m.armor==='none' ? '未应用预设' : m.armor==='unknown' ? '预设状态未知' : '已应用预设：'+m.armor }}</span><span class="spacer"></span><button class="btn link small" :disabled="!m.content" @click="chat.copy(m)">复制</button></div>
+                  <details class="chat-diagnostics" v-if="m.role==='assistant' && (m.armor || m.request_id)"><summary>本次请求诊断</summary><p>{{ chat.armorExplanation(m) }}</p><p v-if="m.request_id" class="hint mono">请求编号：{{ m.request_id }}</p><p v-if="m.armor_bytes!==null && m.armor_bytes!==undefined" class="hint">预设正文：{{ m.armor_bytes }} 字节</p><p v-if="m.armor_sha256" class="hint mono" style="overflow-wrap:anywhere">正文指纹：{{ m.armor_sha256 }}</p></details>
+                  <details v-if="m.reasoning" class="chat-reasoning"><summary>思考过程</summary><pre>{{ m.reasoning }}</pre></details>
+                  <pre class="chat-text">{{ m.content || (m.status==='streaming'?'正在思考…':'未收到文本') }}</pre>
+                  <div v-if="m.error" class="chat-message-error">{{ m.error }}</div>
+                  <details v-if="m.previous" class="chat-previous"><summary>上次未完成的回复（已保留）</summary><div class="chat-message-head"><span class="dim">{{ m.previous.model }} · {{ chat.usageLabel(m.previous) }}</span><span class="spacer"></span><button class="btn link small" :disabled="!m.previous.content" @click="chat.copy(m.previous)">复制上次回复</button></div><details v-if="m.previous.reasoning" class="chat-reasoning"><summary>上次思考过程</summary><pre>{{ m.previous.reasoning }}</pre></details><pre class="chat-text">{{ m.previous.content || '仅收到思考过程' }}</pre></details>
+                  <div class="chat-message-foot" v-if="m.role==='assistant'"><span class="hint">{{ m.status==='streaming'?'正在生成':m.status==='stopped'?'已停止':m.status==='failed'?'回复未完成':m.finish==='length'?'已达到输出上限':'回复完成' }}<span v-if="m.account"> · {{ chat.accounts.find(a=>a.id===m.account)?.name || '账号 '+m.account }}</span><span v-if="chat.elapsed(m)"> · 用时 {{ chat.elapsed(m) }}</span><span v-if="m.status!=='streaming'"> · {{ chat.usageLabel(m) }}</span></span><button v-if="m===chat.current.messages.at(-1) && ['failed','stopped'].includes(m.status)" id="chat-retry" class="btn small" :disabled="!chat.canRetry" @click="chat.retry()">重试这条</button></div>
+                </article>
+              </div><button v-if="!chat.followOutput" id="chat-jump-latest" class="btn chat-jump" @click="chat.scroll(true)">回到最新 ↓</button></div>
+              <div class="chat-compose">
+                <div v-if="chat.error" class="note error" role="alert">{{ chat.error }}</div><div v-if="chat.notice" class="note info" role="status">{{ chat.notice }}</div><div v-if="chat.storageError" class="note warn">{{ chat.storageError }}</div><div v-if="chat.accountProblem && !chat.loading" class="chat-account-warning"><span>{{ chat.accountProblem }}</span><a href="#/accounts">管理账号 →</a></div>
+                <textarea id="chat-input" v-model="chat.input" maxlength="30000" @input="chat.draftChanged()" @blur="chat.persist()" @keydown.ctrl.enter.prevent="!$event.isComposing && chat.send()" @keydown.meta.enter.prevent="!$event.isComposing && chat.send()" :placeholder="chat.busy ? '可先写下一条消息，当前回复结束后再发送' : '输入消息，Ctrl + Enter 发送；Enter 换行'" aria-label="消息"></textarea>
+                <div class="chat-compose-foot"><span class="hint">{{ chat.accountName }} · 发送会消耗上游额度</span><span class="spacer"></span><small class="dim chat-input-count">{{ chat.input.length }} / 30000</small><button v-if="chat.busy" id="chat-stop" class="btn" :disabled="chat.stopping" @click="chat.stop()">{{ chat.stopping ? '正在停止…' : '停止生成' }}</button><button v-else id="chat-send" class="btn primary" :disabled="!chat.canSend" @click="chat.send()">发送 ↗</button></div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- ===================== 账号列表 ===================== -->
+        <div v-if="route==='accounts' && accounts" class="route accounts-page">
+          <div class="page-head">
+            <div class="page-heading"><h1>账号</h1><p class="desc">集中管理渠道、凭证与额度，点击账号查看详情</p></div>
+            <span class="spacer"></span>
+            <button id="accounts-refresh-quota" class="btn" :disabled="accounts.quotaBusy" @click="accounts.refreshQuotas(true)">{{ accounts.quotaBusy ? '查询额度中…' : '刷新额度' }}</button>
+            <button id="accounts-add-api" class="btn" @click="accounts.openAPICreate()">添加 API 账号</button>
+            <button class="btn" @click="accounts.openLogin()">浏览器登录添加账号</button>
+            <button class="btn primary" @click="accounts.createOpen ? accounts.resetForm() : accounts.openCreate()">
+              {{ accounts.createOpen ? '收起表单' : '＋ 新建账号' }}
+            </button>
+          </div>
+
+          <p class="hint" id="checkin-schedule">{{ accounts.scheduleText }}</p>
+          <div class="panel account-filters"><div class="panel-body">
+            <div class="account-filter-summary"><b>全部 {{ accounts.summary.total }} 个</b><span>启用 {{ accounts.summary.enabled }} 个</span><span>就绪 {{ accounts.summary.ready }} 个</span><span>未配置凭证 {{ accounts.summary.missing }} 个</span></div>
+            <div class="account-filter-fields">
+              <input id="accounts-search" type="search" v-model="accounts.query" maxlength="256" placeholder="搜索账号、渠道或型号" aria-label="搜索账号">
+              <select id="accounts-provider-filter" v-model="accounts.providerFilter" aria-label="筛选渠道"><option value="">全部渠道</option><option v-for="p in accounts.availableProviders" :value="p.id">{{ p.name }}</option></select>
+              <select id="accounts-region-filter" v-model="accounts.regionFilter" aria-label="筛选地区"><option value="">全部地区</option><option value="cn">国内</option><option value="global">国际</option></select>
+              <select id="accounts-state-filter" v-model="accounts.stateFilter" aria-label="筛选状态"><option value="">全部状态</option><option value="ready">就绪</option><option value="disabled">已停用</option><option value="missing">启用但缺凭证</option><option value="cooldown">冷却中</option><option value="unverified">待验证或故障</option></select>
+              <select id="accounts-sort" v-model="accounts.sortMode" aria-label="账号排序"><option value="created">最近添加</option><option value="name">按名称</option></select>
+              <button class="btn small" @click="accounts.clearFilters()">清除筛选</button><button id="accounts-reload" class="btn small" :disabled="accounts.loading" @click="accounts.reload()">刷新列表</button>
+              <button id="accounts-test-filtered" class="btn small" :disabled="accounts.testBusy || !accounts.visibleList.length" @click="accounts.testAccounts(null,true)">测试当前筛选账号</button>
+            </div><p class="hint">显示 {{ accounts.visibleList.length }} / {{ accounts.list.length }} 个账号。测试会发送短消息并消耗上游额度；就绪状态不代表所有型号均已实测。</p>
+          </div></div>
+          <details class="panel account-tests" :open="accounts.testBusy || accounts.testResults.length > 0">
+            <summary class="panel-head">账号消息测试<span class="dim">按需发送短消息，检查账号可用性</span><span class="spacer"></span><span class="badge b-outline">{{ accounts.testResults.length }} / {{ accounts.testTotal }}</span></summary>
+            <div class="panel-body"><div class="chat-compose-foot"><input class="test-model" type="text" v-model="accounts.testModel" :disabled="accounts.testBusy" placeholder="测试模型（留空按每个账号选取）" aria-label="测试模型"><button v-if="accounts.testBusy" class="btn" @click="accounts.stopTests()">停止测试</button><button v-else class="btn" :disabled="!accounts.list.length" @click="accounts.testAccounts()">一键测试全部账号</button></div><p class="hint">每号发送一条“请只回复 OK”，固定账号、不换号。包括手动停用账号，成功后清除可恢复故障，但不改变人工启停。测试消耗上游额度，每号最多等待 60 秒。支持的渠道限制为 128 个输出 Token；Codex 和 Trae 国际版不支持此上限。</p><div v-if="accounts.testError" class="note error">{{ accounts.testError }}</div>
+              <div class="table-wrap" v-if="accounts.testResults.length"><table><thead><tr><th>账号</th><th>模型</th><th>结果</th><th>说明</th><th></th></tr></thead><tbody><tr v-for="r in accounts.testResults" :key="r.id"><td>{{ r.name }}</td><td class="mono">{{ r.model || '—' }}</td><td>{{ r.status==='success'?'成功':r.status==='skipped'?'跳过':'失败' }}</td><td>{{ r.message }} · {{ r.latency_ms }} ms</td><td><button class="btn small" :disabled="accounts.testBusy" @click="accounts.testAccounts(r.id)">重测</button></td></tr></tbody></table></div>
+            </div>
+          </details>
+
+          <!-- 浏览器登录：不用手抄 token，登录完网关自动建号 -->
+          <div class="panel" v-if="accounts.login.open">
+            <div class="panel-head">浏览器登录添加账号</div>
+            <div class="panel-body">
+              <div v-if="accounts.login.step==='form'" class="grid cols-2">
+                <div class="field"><label for="login-provider">登录平台</label><select id="login-provider" v-model="accounts.login.form.provider" @change="accounts.selectLoginProvider()"><option v-for="p in accounts.loginProviders" :key="p.id" :value="p.id">{{ p.name }}</option></select></div>
+                <div class="field"><label for="login-region">账号地区</label><select id="login-region" v-model="accounts.login.form.region"><option v-for="r in accounts.loginRegions" :key="r" :value="r">{{ r==='cn'?'国内':'国际' }}</option></select></div>
+                <div class="field"><label for="login-name">名称（可选）</label><input id="login-name" type="text" v-model="accounts.login.form.name" placeholder="留空自动命名"></div>
+                <div class="field" v-if="accounts.login.form.provider!=='workbuddy'"><label for="login-models">账号可用型号（可选）</label><input id="login-models" type="text" v-model="accounts.login.form.models" placeholder="填写实际模型 ID，多个用逗号分隔"></div>
+                <div class="field" v-if="accounts.login.form.provider==='gemini'"><label for="login-client">自己的 Google OAuth 客户端 ID</label><input id="login-client" type="text" v-model="accounts.login.form.client_id" autocomplete="off"></div>
+                <div class="field" v-if="accounts.login.form.provider==='gemini'"><label for="login-secret">对应客户端密钥（如需）</label><input id="login-secret" type="password" v-model="accounts.login.form.client_secret" autocomplete="off"></div>
+                <div class="field" v-if="accounts.login.form.provider==='gemini'"><label for="login-project">已开通 Code Assist 的 Google 项目 ID</label><input id="login-project" type="text" v-model="accounts.login.form.project_id"><p class="hint">Google OAuth 的授权回调地址须允许本机端口下的 /auth/callback。</p></div>
+                <div class="field" v-if="accounts.login.form.provider==='claude'" style="grid-column:1/-1">
+                  <p class="hint" id="claude-login-hint">登录本人 Claude 账号并同意授权后，网关自动保存和续期。本机可直接接收回调，也可使用完整授权码回填。</p>
+                  <details id="claude-login-config"><summary>自有 OAuth 客户端配置（可选）</summary>
+                    <label for="claude-login-client">获准的客户端 ID</label><input id="claude-login-client" v-model="accounts.login.form.client_id" autocomplete="off" placeholder="留空使用默认公开客户端">
+                    <label for="claude-login-redirect">该客户端已登记的回调地址</label><input id="claude-login-redirect" v-model="accounts.login.form.redirect_uri" autocomplete="off" placeholder="自有客户端需填写注册回调地址">
+                    <label for="claude-login-secret">客户端密钥（如需）</label><input id="claude-login-secret" type="password" v-model="accounts.login.form.client_secret" autocomplete="off">
+                  </details>
+                </div>
+                <div style="display:flex;gap:8px;grid-column:1/-1"><button class="btn primary" :disabled="accounts.login.starting" @click="accounts.startLogin()">{{ accounts.login.starting?'请求授权中…':'开始登录' }}</button><button class="btn" @click="accounts.closeLogin()">取消</button></div>
+                <div class="err" v-if="accounts.login.error" style="grid-column:1/-1">{{ accounts.login.error }}</div>
+              </div>
+
+              <div v-else-if="accounts.login.step==='wait'">
+                <div class="note info">
+                  请打开授权链接，登录本人账号并同意授权。登录态由后端加密保存。
+                </div>
+                <div class="field">
+                  <label>授权链接</label>
+                  <div style="display:flex; gap:8px; align-items:center">
+                    <input type="text" readonly :value="accounts.login.authUrl" @focus="$event.target.select()" style="flex:1">
+                    <a class="btn small" :href="accounts.login.authUrl" target="_blank" rel="noopener">打开 ↗</a>
+                  </div>
+                </div>
+                <div class="note info" v-if="accounts.login.userCode">在授权页面输入设备验证码：<b class="mono">{{ accounts.login.userCode }}</b></div>
+                <div class="field" v-if="accounts.login.mode==='callback' || accounts.login.mode==='code'">
+                  <div v-if="accounts.login.form.provider==='claude'">
+                    <label for="login-callback">{{ accounts.login.mode==='code' ? 'Claude 完整授权码' : '回调地址或完整授权码（自动回调未完成时）' }}</label>
+                    <p class="hint" id="claude-login-code-hint">{{ accounts.login.mode==='code' ? '复制 Claude 授权完成页面提供的完整授权码，包含 # 后面的状态，再粘贴到这里。也可粘贴本次完整回调地址。' : '本机自动接收回调；如果没有完成，请粘贴本次完整回调地址或包含 # 后状态的授权码。' }}一次性授权信息请勿分享。</p>
+                  </div>
+                  <div v-else>
+                  <label for="login-callback">回调地址（仅在自动回调未完成时粘贴）</label>
+                  <p class="hint">本机自动接收回调。若回调未完成，请复制授权后的页面完整地址粘贴到这里；此地址含一次性授权信息，请勿分享。</p>
+                  </div>
+                  <input id="login-callback" type="password" autocomplete="off" v-model="accounts.login.callbackInput" :placeholder="accounts.login.form.provider==='claude' ? '粘贴完整授权码 code#state 或回调地址' : '粘贴本次登录返回的完整地址'">
+                  <button class="btn small" :disabled="accounts.login.completing || !accounts.login.callbackInput.trim()" @click="accounts.completeLogin()">接收授权并保存</button>
+                </div>
+                <div class="dim" style="margin:10px 0">
+                  状态：{{ accounts.login.done ? '✓ 已完成' : '等待授权…' }}
+                  <span v-if="accounts.login.secondsLeft">（{{ accounts.login.secondsLeft }} 秒后超时）</span>
+                </div>
+                <div class="err" v-if="accounts.login.error">{{ accounts.login.error }}</div>
+                <button class="btn" @click="accounts.closeLogin()">取消登录</button>
+              </div>
+
+              <div v-else>
+                <div class="note info">✓ 登录成功，账号已创建并启用。</div>
+                <button class="btn primary" @click="accounts.closeLogin()">完成</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 新建表单 -->
+          <div class="panel" v-if="accounts.createOpen">
+            <div class="panel-head">新建账号</div>
+            <div class="panel-body">
+              <div class="grid cols-2">
+                <div class="field">
+                  <label for="field-5">名称</label>
+                  <input id="field-5" type="text" v-model="accounts.form.name" placeholder="wb-cn-1">
+                </div>
+                <div class="field">
+                  <label for="field-6">渠道</label>
+                  <select id="field-6" v-model="accounts.form.provider" @change="accounts.selectProvider()">
+                    <option v-for="p in accounts.providers" :value="p.id">{{ p.name }}</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="field-7">区域</label>
+                  <select id="field-7" v-model="accounts.form.region">
+                    <option v-for="region in accounts.providerRegions" :key="region" :value="region">{{ region==='cn' ? '国内' : '国际' }}</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="field-8">权重（同权重时均匀轮询）</label>
+                  <input id="field-8" type="number" min="1" max="1000000" v-model="accounts.form.weight">
+                </div>
+                <div class="field">
+                  <label for="field-9">并发上限（0 继承全局配置）</label>
+                  <input id="field-9" type="number" min="0" v-model="accounts.form.max_inflight">
+                </div>
+                <div class="field"><label for="field-10">优先级（数值越大越优先）</label><input id="field-10" type="number" v-model="accounts.form.priority"></div>
+                <div class="field"><label for="field-11">额度范围</label><select id="field-11" v-model="accounts.form.quota_scope"><option value="account">账号独立额度</option><option value="shared">项目 / 组织共享额度</option><option value="model">每个模型独立额度</option></select></div>
+                <div class="field" v-if="accounts.form.quota_scope==='shared'"><label for="field-12">共享额度组</label><input id="field-12" v-model="accounts.form.quota_group" maxlength="128" placeholder="填写实际项目或组织名称"></div>
+                <div class="field">
+                  <label>{{ accounts.selectedCheckin.label || "无需签到" }}</label>
+                  <label class="switch" style="margin-top:6px">
+                    <input type="checkbox" v-model="accounts.form.auto_checkin" :disabled="!accounts.selectedCheckin.supported">
+                    <span class="track"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="hint">{{ accounts.selectedProvider.note }}</div>
+              <div class="hint">{{ accounts.selectedCheckin.note }}</div>
+              <div class="hint">{{ accounts.selectedProvider.browser_login ? '支持浏览器授权后自动保存登录态' : 'API 密钥直接填写；订阅登录态需手动导入本人凭证，不支持浏览器自动保存' }}</div>
+              <div class="field" v-if="accounts.selectedProvider.auth_types.length>1"><label for="platform-auth">凭证类型</label><select id="platform-auth" v-model="accounts.form.auth_type"><option value="api_key">官方 API 密钥</option><option value="oauth">本人客户端登录态</option></select></div>
+              <div v-if="accounts.usesAPIKey">
+				<div class="field" v-if="accounts.selectedProvider.endpoints && accounts.selectedProvider.endpoints.length"><label for="platform-endpoint">官方地区 / 套餐地址</label><select id="platform-endpoint" v-model="accounts.form.endpoint_url" @change="accounts.selectEndpoint()"><option v-for="e in accounts.selectedProvider.endpoints" :key="e.url" :value="e.url">{{ e.name }}</option></select></div>
+				<div class="field" v-if="accounts.form.api_base_url.includes('{workspace_id}')"><label for="platform-workspace">百炼业务空间 ID</label><input id="platform-workspace" v-model="accounts.form.workspace_id" placeholder="填写所选地区的实际业务空间 ID"></div>
+                <div class="field"><label for="field-13">API 基础地址（包含服务要求的 /v1 等前缀）</label><input id="field-13" v-model="accounts.form.api_base_url" placeholder="https://api.openai.com/v1"></div>
+                <div class="field"><label for="field-14">API 密钥</label><input id="field-14" type="password" autocomplete="new-password" v-model="accounts.form.api_key"></div>
+                <div class="field"><label for="field-15">模型名称（{{ accounts.selectedProvider.models_required ? '必填' : '留空自动获取' }}，用空格或逗号分隔）</label><input id="field-15" v-model="accounts.form.api_models" placeholder="填写该账号实际可用的聊天模型 ID"></div>
+				<div class="hint" v-if="accounts.selectedProvider.documentation"><a :href="accounts.selectedProvider.documentation" target="_blank" rel="noopener noreferrer">查看该平台官方接入说明</a></div>
+              </div>
+              <div class="field" v-else>
+                <label for="field-16">本人登录态 JSON（WorkBuddy 可稍后上传）</label>
+                <textarea id="field-16" v-model="accounts.form.credential" rows="5" :placeholder="accounts.credentialExample" autocomplete="off" spellcheck="false"></textarea>
+                <div class="hint">必须是 JSON 文本；非法凭证会拒绝创建，请修正后重试。</div>
+                <div v-if="accounts.form.provider!=='workbuddy'">
+                  <label for="platform-credential-file">从本人客户端导出的 JSON 文件读取</label><input id="platform-credential-file" type="file" accept=".json,application/json" @change="accounts.importCredentialFile($event)">
+                  <label for="platform-oauth-models">实际可用模型（用空格或逗号分隔）</label><input id="platform-oauth-models" v-model="accounts.form.api_models" placeholder="Codex 和 Code Assist 需要提供实际模型 ID">
+				  <div v-if="accounts.form.provider==='trae'">
+					<label for="trae-variant">原登录客户端</label><select id="trae-variant" v-model="accounts.form.trae_variant"><option value="solo">国内 Solo</option><option value="cn">国内 IDE</option></select>
+					<label for="trae-scene">聊天场景</label><select id="trae-scene" v-model="accounts.form.trae_scene"><option value="solo_work_lite">默认聊天场景</option><option value="chat_v3">新版 IDE chat_v3 场景</option></select>
+					<div class="hint">选择与本人客户端一致的产品。型号来自所选场景目录；没有权限的型号由上游拒绝。</div>
+				  </div>
+                  <div v-if="accounts.form.provider==='gemini'">
+                    <label for="gemini-project">Code Assist 项目 ID</label><input id="gemini-project" v-model="accounts.form.project_id" placeholder="填写本人 Google Cloud 项目 ID">
+                    <label for="gemini-client-id">OAuth 客户端 ID（自动刷新使用）</label><input id="gemini-client-id" v-model="accounts.form.client_id" autocomplete="off">
+                    <label for="gemini-client-secret">对应 OAuth 客户端密钥（自动刷新使用）</label><input id="gemini-client-secret" type="password" v-model="accounts.form.client_secret" autocomplete="new-password">
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px">
+                <button class="btn primary" :disabled="accounts.creating" @click="accounts.create()">
+                  {{ accounts.creating ? '创建中…' : '创建' }}
+                </button>
+                <button class="btn" @click="accounts.resetForm()">取消</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="loading" v-if="accounts.loading">加载中…</div>
+            <div class="empty" v-else-if="accounts.error" style="color:#c0392b">{{ accounts.error }}</div>
+            <div class="empty" v-else-if="!accounts.list.length">还没有账号，点右上角「新建账号」</div>
+            <div class="empty" v-else-if="!accounts.visibleList.length">没有符合筛选条件的账号，可清除筛选。</div>
+            <div class="account-table-wrap" v-else><p class="hint account-table-hint">左右滑动表格查看剩余额度和型号，点击账号查看详情。</p><table class="tbl account-table">
+              <thead><tr>
+                <th style="width:34px"></th>
+                <th>账号</th><th>渠道</th><th>状态</th><th>剩余额度</th><th>型号</th><th>凭证</th><th>在途</th><th>自动领取</th><th>最近签到</th><th style="width:70px"></th>
+              </tr></thead>
+              <tbody>
+                <template v-for="a in accounts.visibleList" :key="a.id">
+                  <tr class="rowlink" @click="go('account', a.id)">
+                    <td @click.stop>
+                      <label class="switch" :title="a.enabled ? '点击停用' : '点击启用'">
+                        <input type="checkbox" :checked="a.enabled" @change="accounts.toggleEnabled(a, $event)">
+                        <span class="track"></span>
+                      </label>
+                    </td>
+                    <td><b>{{ a.name || a.id }}</b><div class="dim mono" style="font-size:11px">{{ a.id }}</div></td>
+                    <td>{{ a.provider }}<span class="dim">/{{ a.region }}</span></td>
+                    <td>
+                      <span v-if="!a.enabled" class="badge b-off">已停用</span>
+                      <span v-else-if="a.status==='ready'" class="badge b-ok"><span class="dot"></span>就绪</span>
+                      <span v-else-if="a.status==='cooldown'" class="badge b-warn" :title="a.cooldown_until"><span class="dot"></span>冷却 {{ $fmt.dur(a.retry_after_seconds) }}</span>
+                      <span v-else class="badge b-off"><span class="dot"></span>{{ $fmt.accountStatus(a) }}</span>
+                      <div v-if="a.model_cooldowns" class="dim" style="font-size:11px">
+                        模型冷却：{{ Object.keys(a.model_cooldowns).join(', ') }}
+                      </div>
+                    </td>
+                    <td class="account-quota" :title="a.quota?.message || '额度由上游查询，调用用量不能代替剩余额度'"><b>{{ accounts.quotaLabel(a) }}</b><div v-if="a.quota?.checked_at" class="dim">{{ $fmt.ago(a.quota.checked_at) }}查询</div></td>
+                    <td class="account-model-count">{{ a.models?.length || 0 }} 个<div class="dim">点击查看</div></td>
+                    <td>
+                      <span v-if="a.ready === true" class="cred-display">✓</span>
+                      <span v-else-if="a.ready === false" style="color:#c0392b">✗</span>
+                      <span v-else-if="a.has_credential" class="dim">待验证</span><span v-else class="dim">未配置</span>
+                    </td>
+                    <td class="num">{{ a.in_flight ?? 0 }}</td>
+                    <td @click.stop><label v-if="a.checkin?.supported" class="switch" :title="a.enabled ? '每天按后台计划自动领取，领取成功后本周期跳过' : '可预先设置；账号停用期间不执行'"><input type="checkbox" :checked="a.auto_checkin" :disabled="accounts.checkinSaving[a.id]" :data-auto-checkin="a.id" :aria-label="'每日自动领取：'+a.name" @change="accounts.toggleAutoCheckin(a,$event)"><span class="track"></span></label><span v-else class="dim" :title="a.checkin?.note">不支持</span></td>
+                    <td class="dim" style="font-size:12px">
+                      <span v-if="a.last_checkin_status === 'success'" style="color:#276749">✓ {{ $fmt.ago(a.last_checkin_at || a.updated_at) }}</span>
+                      <span v-else-if="a.last_checkin_status" style="color:#b7791f" :title="a.last_checkin_msg">{{ a.last_checkin_status }}</span>
+                      <span v-else>—</span>
+                    </td>
+                    <td @click.stop>
+                      <button class="btn link danger small" @click="accounts.confirmDelete(a)">删除</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table></div>
+          </div>
+        </div>
+
+        <!-- ===================== 账号详情 ===================== -->
+        <div v-if="route==='account' && accountDetail" class="route account-page">
+          <div class="loading" v-if="accountDetail.loading">加载中…</div>
+          <div class="note error" v-else-if="accountDetail.error">{{ accountDetail.error }} — <a href="#/accounts">返回列表</a></div>
+          <div v-else-if="accountDetail.acc">
+            <div class="page-head">
+              <a href="#/accounts" class="dim" style="text-decoration:none">← 账号</a>
+              <h1>{{ accountDetail.acc.name || accountDetail.acc.id }}</h1>
+              <span class="mono dim">{{ accountDetail.acc.id }}</span>
+              <span class="spacer"></span>
+              <span class="badge b-outline">{{ accountDetail.acc.provider }} / {{ accountDetail.acc.region }}</span>
+            </div>
+            <!-- 状态卡 -->
+            <div class="grid cols-4">
+              <div class="stat">
+                <div class="num" style="font-size:16px; padding-top:4px">
+                  <span v-if="!accountDetail.acc.enabled" class="badge b-off">已停用</span>
+                  <span v-else-if="accountDetail.acc.status==='ready'" class="badge b-ok"><span class="dot"></span>就绪</span>
+                  <span v-else-if="accountDetail.acc.status==='cooldown'" class="badge b-warn"><span class="dot"></span>冷却中</span>
+                  <span v-else class="badge b-off"><span class="dot"></span>{{ $fmt.accountStatus(accountDetail.acc) }}</span>
+                </div>
+                <div class="label" style="margin-top:6px">
+                  运行状态
+                  <span v-if="accountDetail.acc.retry_after_seconds">（剩 {{ $fmt.dur(accountDetail.acc.retry_after_seconds) }}）</span>
+                </div>
+              </div>
+              <div class="stat">
+                <div class="num">{{ accountDetail.acc.in_flight ?? 0 }}</div><div class="label">在途请求</div>
+              </div>
+              <div class="stat">
+                <div class="num" style="font-size:16px; padding-top:4px">
+                  <span v-if="accountDetail.acc.ready === true" class="cred-display">✓ 凭证可用</span>
+                  <span v-else-if="accountDetail.acc.ready === false" style="color:#c0392b; font-weight:600">✗ 凭证异常</span>
+                  <span v-else-if="accountDetail.acc.has_credential" class="dim">已配置 · 待验证</span><span v-else class="dim">未配置凭证</span>
+                </div>
+                <div class="label" style="margin-top:6px">凭证</div>
+              </div>
+              <div class="stat">
+                <div class="num" style="font-size:16px; padding-top:4px">
+                  <label class="switch">
+                    <input type="checkbox" :checked="accountDetail.acc.enabled" @change="accountDetail.toggleEnabled($event)">
+                    <span class="track"></span>
+                  </label>
+                </div>
+                <div class="label" style="margin-top:6px">启用调度（立即生效）</div>
+              </div>
+            </div>
+
+            <div class="note warn" v-if="accountDetail.acc.last_error">
+              最近错误（{{ accountDetail.acc.last_error_kind || '未知类型' }}）：{{ accountDetail.acc.last_error }}
+            </div>
+
+            <!-- 号池调度配置 -->
+            <!-- 剩余额度按平台单位展示，未上报值不补零。 -->
+            <div class="panel" id="account-quota-panel">
+              <div class="panel-head">剩余额度<span class="spacer"></span><button id="account-refresh-quota" class="btn small" :disabled="accountDetail.quotaBusy || !accountDetail.acc.has_credential || !accountDetail.acc.quota_supported" @click="accountDetail.refreshQuota(true)">{{ accountDetail.quotaBusy ? '查询中…' : '刷新额度' }}</button></div>
+              <div class="panel-body">
+                <div v-if="accountDetail.quota?.state==='ok' && accountDetail.quota.amounts?.length" class="quota-amounts"><div v-for="q in accountDetail.quota.amounts" :key="q.label" class="quota-amount"><b>{{ q.label }}</b><strong>{{ accountDetail.quotaNumber(q.remaining) }} <small>{{ q.unit }}</small></strong><span class="dim">已用 {{ accountDetail.quotaNumber(q.used) }} · 总额 {{ accountDetail.quotaNumber(q.total) }} {{ q.unit }}</span></div></div>
+                <p v-else class="dim" id="account-quota-state">{{ accountDetail.quotaBusy ? '正在读取上游额度…' : accountDetail.quotaLabel() }}</p>
+                <p class="hint">{{ accountDetail.quota?.message || '额度由上游提供；平台未开放查询时显示未知，不用本地调用量推算余额。' }}</p><p v-if="accountDetail.quota?.checked_at" class="hint">查询时间：{{ $fmt.time(accountDetail.quota.checked_at) }}。普通查询缓存 60 秒，主动刷新至少间隔 5 秒。</p>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">号池配置<span class="spacer"></span><button class="btn small" v-if="!accountDetail.configEdit" @click="accountDetail.openConfig()">编辑配置</button></div>
+              <div class="panel-body" v-if="!accountDetail.configEdit">
+                优先级 {{ accountDetail.acc.priority }} · 权重 {{ accountDetail.acc.weight }} · 实际并发上限 {{ accountDetail.acc.effective_max_inflight || '不限' }}
+                <div class="dim">额度范围 {{ accountDetail.acc.quota_scope }} · 额度组 {{ accountDetail.acc.quota_group || '未设置' }}</div>
+              </div>
+              <div class="panel-body" v-else>
+                <div class="grid cols-3">
+                  <div class="field"><label for="field-17">账号名称</label><input id="field-17" v-model="accountDetail.configForm.name"></div>
+                  <div class="field"><label for="field-18">并发上限（0 继承全局）</label><input id="field-18" type="number" min="0" v-model="accountDetail.configForm.max_inflight"></div>
+                  <div class="field"><label for="field-19">优先级</label><input id="field-19" type="number" v-model="accountDetail.configForm.priority"></div>
+                  <div class="field"><label for="field-20">权重</label><input id="field-20" type="number" min="1" max="1000000" v-model="accountDetail.configForm.weight"></div>
+                  <div class="field"><label for="field-21">额度范围</label><select id="field-21" v-model="accountDetail.configForm.quota_scope"><option value="account">账号独立</option><option value="shared">共享额度组</option><option value="model">模型独立</option></select></div>
+                  <div class="field"><label for="field-22">共享额度组</label><input id="field-22" v-model="accountDetail.configForm.quota_group" maxlength="128"></div>
+                </div>
+                <div class="field"><label for="field-23">额度包到期时间（未知留空）</label><input id="field-23" v-model="accountDetail.configForm.quota_expires_at" placeholder="2026-10-31T23:59:59+08:00"><div class="hint">请填写实际额度到期时间，登录令牌有效期不能代替额度有效期。同优先级、同地区内优先使用即将到期的额度。</div></div>
+                <label><input type="checkbox" v-model="accountDetail.configForm.auto_checkin" :disabled="!accountDetail.acc.checkin?.supported"> 自动{{ accountDetail.acc.checkin?.label || "签到" }}</label>
+                <label style="margin-left:16px"><input type="checkbox" v-model="accountDetail.configForm.drop_system_prompt"> 清除客户端系统提示</label>
+                <p class="dim" style="margin-top:8px">开启后清除调用方的 system / developer 指令，保留用户消息与工具结果；密钥启用的破甲预设继续保留。需要使用自己的系统提示时关闭此项。</p>
+                <div style="margin-top:14px"><button class="btn primary" :disabled="accountDetail.configSaving" @click="accountDetail.saveConfig()">保存配置</button> <button class="btn" @click="accountDetail.configEdit=false">取消</button></div>
+              </div>
+            </div>
+            <div class="panel"><div class="panel-head">{{ accountDetail.acc.checkin?.label || "签到能力" }}<span class="spacer"></span><button class="btn small" v-if="accountDetail.acc.checkin?.supported" :disabled="accountDetail.checkinBusy || !accountDetail.acc.enabled" @click="accountDetail.checkin()">{{ accountDetail.checkinBusy?'正在领取…':'立即领取' }}</button></div><div class="panel-body"><p class="hint">{{ accountDetail.acc.checkin?.note }}</p><p>{{ accountDetail.acc.last_checkin_msg || "尚无领取记录" }}</p></div></div>
+            <!-- 凭证上传 -->
+            <div class="panel">
+              <div class="panel-head">
+                凭证
+                <span class="spacer"></span>
+                <button class="btn small" @click="accountDetail.openCred()" v-if="!accountDetail.credOpen">上传 / 更换</button>
+              </div>
+              <div class="panel-body" v-if="!accountDetail.credOpen">
+                <span class="dim">凭证内容后端不回传（安全设计）。上传新的凭证会覆盖旧的。</span>
+              </div>
+              <div class="panel-body" v-else>
+                <div class="field">
+                  <textarea v-model="accountDetail.credText" rows="8" placeholder='粘贴从客户端导出的 JSON。三种格式都支持：扁平 snake_case、扁平 camelCase、嵌套 {account,auth}'></textarea>
+                  <div class="hint">后端适配器会先解码校验，失败会返回具体原因（如缺 access_token）。</div>
+                </div>
+                <div style="display:flex; gap:8px">
+                  <button class="btn primary" :disabled="accountDetail.credSaving" @click="accountDetail.saveCred()">
+                    {{ accountDetail.credSaving ? '校验中…' : '上传' }}
+                  </button>
+                  <button class="btn" @click="accountDetail.credOpen=false">取消</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 破甲 -->
+            <div class="panel">
+              <div class="panel-head">
+                破甲预设
+                <span class="dim" style="font-weight:400; margin-left:8px; font-size:12px">
+                  按请求的<b>模型</b>选择，与账号无关
+                </span>
+              </div>
+              <div class="panel-body">
+                <div v-if="!accountDetail.armorList || !accountDetail.armorList.enabled" class="dim">
+                  破甲未启用（后端没有加载任何预设，检查 armor.dir 配置）。
+                </div>
+                <div v-else class="armor-controls">
+                  <div class="note info" style="margin-top:0">
+                    <b>破甲跟随调用密钥：</b>密钥获准使用并实际开启后，网关自动按<b>请求的模型</b>
+                    挑选对应预设（glm → glm 预设、deepseek → deepseek 预设），
+                    客户端<b>不需要带启用请求头</b>。未获准、未开启或没有匹配预设时，不加入预设。
+                    <br>
+                    之所以按模型而不是按账号：同一个账号会服务很多模型，绑定到账号会把 DeepSeek 的
+                    提示词发给 GLM 模型；而且换号后提示词会跟着变，调用方看不见。
+                    <br>
+                    调用方可以在<b>单次请求</b>上用 <code class="inline">X-RelayPool-Armor: 0</code>
+                    收窄（关掉这一次的破甲），但不能绕过密钥权限或开启状态。
+                  </div>
+
+                  <!-- 模型 → 预设 预览（这是唯一需要配置项的地方：查映射） -->
+                  <div class="field">
+                    <label>查某个模型会用哪个预设</label>
+                    <div style="display:flex; gap:8px">
+                      <input type="text" v-model="accountDetail.resolveModel" placeholder="模型名，如 glm-5.2" style="flex:1" @keydown.enter="accountDetail.doResolve()">
+                      <button class="btn" :disabled="accountDetail.resolveBusy || !accountDetail.resolveModel.trim()" @click="accountDetail.doResolve()">
+                        {{ accountDetail.resolveBusy ? '查询中…' : '查询' }}
+                      </button>
+                    </div>
+                  </div>
+                  <div class="resolve-box" v-if="accountDetail.resolveResult">
+                    <div v-if="accountDetail.resolveResult.error" style="color:#c0392b">
+                      {{ accountDetail.resolveResult.error }}
+                    </div>
+                    <dl class="kv" v-else>
+                      <dt>模型</dt><dd class="mono">{{ accountDetail.resolveResult.model }}</dd>
+                      <dt>识别族</dt><dd><span class="badge b-outline">{{ accountDetail.resolveResult.family || 'generic' }}</span></dd>
+                      <!--
+                        这两组 <dt>/<dd> 用 <template v-if> 会踩 petite-vue 的锚点
+                        缺陷（片段切换时 insertBefore 拿到 null），所以用真实元素
+                        承载，并把 <dl> 的网格布局改成对块级子元素同样生效的写法。
+                      -->
+                      <div v-if="accountDetail.resolveResult.applied" class="kvblock">
+                        <dt>选中预设</dt><dd><b class="mono">{{ accountDetail.resolveResult.preset }}</b> <span class="dim">（{{ $fmt.bytes(accountDetail.resolveResult.bytes) }}）</span></dd>
+                        <dt>来源</dt><dd>{{ $resolveSource(accountDetail.resolveResult.source) }}</dd>
+                        <dt>说明</dt><dd class="dim">{{ accountDetail.resolveResult.reason }}</dd>
+                      </div>
+                      <div v-else class="kvblock">
+                        <dt>结果</dt><dd class="dim">不会应用任何预设 — {{ accountDetail.resolveResult.reason }}</dd>
+                      </div>
+                    </dl>
+                    <div class="dim" style="margin-top:8px; font-size:11.5px">
+                      这里预览模型匹配方案，实际应用还需密钥获得许可并开启。
+                      在 <a href="#/keys">API 密钥</a> 页设置许可和开启状态；响应头
+                      <code class="inline">X-RelayPool-Armor-Applied</code>
+                      会回实际用的预设名（没生效回 <code class="inline">none</code>）。
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 模型目录 -->
+            <div class="panel">
+              <div class="panel-head">模型目录 · {{ accountDetail.acc.models?.length || 0 }} 个<span class="spacer"></span><button id="account-refresh-catalog" class="btn small" :disabled="accountDetail.catalogBusy || !accountDetail.acc.has_credential" @click="accountDetail.refreshCatalog()">{{ accountDetail.catalogBusy ? '查询中…' : '查询上游型号' }}</button></div>
+              <div class="panel-body">
+                <p class="hint" id="account-catalog-source">{{ accountDetail.catalog?.message || '当前为已保存目录，可能来自配置或此前的上游查询。点击查询可核实上游返回的型号。' }}<span v-if="accountDetail.catalog?.checked_at"> · {{ $fmt.time(accountDetail.catalog.checked_at) }}</span></p>
+                <div v-if="!accountDetail.acc.models || !accountDetail.acc.models.length" class="dim">
+                  还没有型号。可查询上游，或在凭证配置中填写本人实际可用的型号。
+                </div>
+                <div v-else style="display:flex; flex-wrap:wrap; gap:6px">
+                  <span v-for="m in accountDetail.acc.models" class="badge b-outline mono">{{ m }}</span>
+                </div>
+                <div v-if="accountDetail.acc.model_cooldowns" style="margin-top:10px">
+                  <b class="dim" style="font-size:12px">模型级冷却（仅这些模型不可用，账号其余模型正常）：</b>
+                  <div style="margin-top:5px; display:flex; flex-wrap:wrap; gap:6px">
+                    <span v-for="(until, m) in accountDetail.acc.model_cooldowns" class="badge b-warn mono">{{ m }} → {{ $fmt.time(until) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 基本信息 -->
+            <details class="fold">
+              <summary>全部字段（配置快照）</summary>
+              <dl class="kv" style="display:grid; grid-template-columns:160px 1fr; gap:3px 12px; padding:8px 4px; margin:0">
+                <dt class="dim">id</dt><dd class="mono">{{ accountDetail.acc.id }}</dd>
+                <dt class="dim">provider / region</dt><dd class="mono">{{ accountDetail.acc.provider }} / {{ accountDetail.acc.region }}</dd>
+                <dt class="dim">weight / priority</dt><dd class="mono">{{ accountDetail.acc.weight }} / {{ accountDetail.acc.priority }}</dd>
+                <dt class="dim">max_inflight</dt><dd class="mono">{{ accountDetail.acc.max_inflight }}</dd>
+                <dt class="dim">drop_system_prompt</dt><dd class="mono">{{ accountDetail.acc.drop_system_prompt }}</dd>
+                <dt class="dim">auto_checkin</dt><dd class="mono">{{ accountDetail.acc.auto_checkin }}</dd>
+                <dt class="dim">backoff_level</dt><dd class="mono">{{ accountDetail.acc.backoff_level }}</dd>
+                <dt class="dim">remote_uid</dt><dd class="mono">{{ accountDetail.acc.remote_uid || '—' }}</dd>
+                <dt class="dim">created_at</dt><dd class="mono">{{ $fmt.timeFull(accountDetail.acc.created_at) }}</dd>
+                <dt class="dim">updated_at</dt><dd class="mono">{{ $fmt.timeFull(accountDetail.acc.updated_at) }}</dd>
+              </dl>
+              <dl class="kv" v-if="accountDetail.acc.cooldown_until" style="display:grid; grid-template-columns:160px 1fr; gap:3px 12px; padding:0 4px 8px; margin:0">
+                <dt class="dim">cooldown_until</dt><dd class="mono">{{ $fmt.timeFull(accountDetail.acc.cooldown_until) }}</dd>
+              </dl>
+            </details>
+
+          </div>
+        </div>
+
+        <!-- ===================== 破甲预设库 ===================== -->
+        <div v-if="route==='armor' && armor" class="route">
+          <div class="page-head"><div class="page-heading"><h1>破甲预设</h1><p class="desc">每个模型系列一个默认方案，密钥启用后自动匹配</p></div></div>
+		  <div class="note error" v-if="armor.info?.configuration_error">{{ armor.info.configuration_error }}</div>
+          <div class="note info">破甲随 API 密钥生效。在 <a href="#/keys">API 密钥页</a> 为每个密钥设置是否启用；本页管理预设与型号匹配。</div>
+
+          <div class="panel armor-pack"><div class="panel-head">预设包与备份</div><div class="panel-body"><p class="dim">预设包包含完整正文、系列与版本匹配、具体型号绑定。导入前先预览，提交时自动下载原配置备份；不会改变密钥权限。</p><div class="grid cols-3"><div class="field"><label for="armor-pack-file">本地预设包</label><input id="armor-pack-file" type="file" accept=".json,application/json" :disabled="armor.packBusy" @change="armor.readPack($event)"></div><div class="field"><label for="armor-pack-mode">导入方式</label><select id="armor-pack-mode" v-model="armor.packMode" :disabled="armor.packBusy" @change="armor.previewPack()"><option value="merge">合并：保留现有用户预设</option><option value="replace">替换：用于还原备份</option></select></div><div class="field"><label>当前配置</label><button class="btn" :disabled="armor.packBusy" @click="armor.exportPack()">导出用户预设备份</button></div></div><p class="note info" v-if="armor.packMode==='replace'">替换只影响用户导入的预设及绑定，内置预设保留。导出的备份不包含内置正文、账号或密钥。</p><p class="err" v-if="armor.packError">{{ armor.packError }}</p><div v-if="armor.packPreview"><p>校验通过，导入后共 {{ armor.packPreview.presets }} 个用户预设、{{ armor.packPreview.bindings }} 个绑定。</p><p class="dim">{{ armor.packPreview.incoming_names.join('、') || '空备份：仅保留包中声明的绑定' }}</p></div><div class="toolbar"><button class="btn" :disabled="armor.packBusy || !armor.pack" @click="armor.previewPack()">重新预览</button><button class="btn primary" :disabled="armor.packBusy || !armor.packPreview" @click="armor.installPack()">备份并导入</button></div></div></div>
+          <div class="panel match-panel"><div class="panel-body"><div><b>先看这个模型会用哪个方案</b><p class="dim">填写客户端请求中的模型名称，立即预览自动匹配结果。</p></div><div class="match-controls"><input type="text" v-model="armor.previewModel" placeholder="例如 deepseek-v4.1 或 gpt-6-astra" aria-label="预览匹配的模型" @keydown.enter="armor.resolveModel()"><button class="btn primary" :disabled="armor.previewBusy || !armor.previewModel.trim()" @click="armor.resolveModel()">预览匹配</button></div><div class="resolve-box" v-if="armor.previewResult">{{ armor.previewResult.applied ? '候选预设：'+armor.previewResult.preset : '没有匹配的预设' }}<span class="dim"> · {{ armor.previewResult.active_reason }} · 预览不改变密钥权限或开关</span></div></div></div>
+          <div class="panel coverage-panel" v-if="armor.info?.coverage_matrix"><div class="panel-head">不同型号的自动分配</div><div class="panel-body"><p class="dim">版本专用优先，其余同系列共用默认提示。以下是匹配示例，不是账号可调用型号清单；实际效果须逐型号实测。</p><div class="coverage-grid"><article class="coverage-card" v-for="row in armor.info.coverage_matrix" :key="row.family"><b>{{ row.label }}</b><ul><li v-for="m in row.models" :key="m.model"><code>{{ m.model }}</code><span :class="m.available ? 'dim' : 'err'">{{ m.available ? (m.kind==='version' ? '版本预设' : '系列预设') : '暂无预设' }}</span></li></ul></article></div></div></div>
+<div class="section-heading"><div><h2>自动匹配预设</h2><p class="dim">{{ armor.curated.length }} 个预设 · {{ (armor.info?.families || []).length }} 个系列 · 效果待逐型号实测</p></div><span class="badge b-ok">版本优先 · 系列兜底</span></div>
+          <div class="loading" v-if="armor.loading">正在加载预设…</div><div class="note error" v-else-if="armor.error">{{ armor.error }}</div>
+          <div v-else class="preset-grid armor-list"><article class="preset-card" v-for="p in armor.curated" :key="p.name"><div class="preset-card-head"><span class="family-monogram">{{ p.family.slice(0,2).toUpperCase() }}</span><span class="badge b-ok">自动匹配</span></div><h3>{{ p.description }}</h3><p class="preset-coverage">{{ p.coverage }}</p><p class="preset-reason">{{ p.selection_note }}</p><div class="preset-card-foot"><span class="mono" :class="{'token-cost':p.bytes>16384}">{{ $fmt.bytes(p.bytes) }}{{ p.bytes>16384 ? ' · 输入较长' : '' }}</span><button class="btn link small" @click="armor.open(p.name)">查看正文 ↗</button></div></article></div>
+          <div class="note info" v-if="armor.info && !armor.info.enabled">尚未添加预设。可导入有权使用的预设包，或在高级管理中添加本地提示正文。</div>
+          <details class="advanced-armor fold"><summary>高级管理：自定义预设与模型选择</summary><div class="advanced-content"><div class="panel"><div class="panel-head">添加自定义预设</div><div class="panel-body"><div class="field"><label>本地提示文件</label><input type="file" accept=".md,.txt,.mkd" @change="armor.readLocalFile($event)"></div><textarea rows="6" v-model="armor.importForm.body" placeholder="粘贴完整提示正文"></textarea><div class="grid cols-3" style="margin-top:12px"><div class="field"><label for="field-26">名称</label><input id="field-26" v-model="armor.importForm.name" placeholder="my-preset"></div><div class="field"><label for="field-27">模型系列</label><input id="field-27" v-model="armor.importForm.family" placeholder="claude / deepseek / gemini"></div><div class="field"><label for="field-28">说明</label><input id="field-28" v-model="armor.importForm.description"></div></div><button class="btn primary" :disabled="armor.importBusy || !armor.importForm.body.trim()" @click="armor.importPreset(false)">保存预设</button></div></div>
+<div class="panel">
+            <div class="panel-head">具体模型的预设选择</div>
+            <div class="panel-body">
+              <div class="grid cols-3">
+                <div class="field"><label for="field-29">实际模型名称</label><input id="field-29" v-model="armor.bindingForm.model" placeholder="填写客户端请求的模型 ID"></div>
+                <div class="field"><label for="field-30">预设</label><select id="field-30" v-model="armor.bindingForm.preset"><option value="">跟随模型族自动选择</option><option value="off">该模型关闭</option><option v-for="p in armor.info?.data || []" :key="p.name" :value="p.name">{{ p.name }}</option></select></div>
+                <div class="field"><label>保存后立即生效</label><button class="btn primary" :disabled="armor.bindingBusy" @click="armor.saveBinding()">保存模型选择</button></div>
+              </div>
+              <div class="note info" v-if="armor.bindingResult">预览：{{ armor.bindingResult.applied ? armor.bindingResult.preset : '不注入预设' }}。密钥未获准或未开启时不应用预设。</div>
+              <table class="tbl" v-if="armor.bindings.length"><thead><tr><th>模型</th><th>已保存的选择</th></tr></thead><tbody><tr v-for="b in armor.bindings" :key="b.model"><td>{{ b.model }}</td><td>{{ b.preset==='off' ? '关闭' : b.preset }}</td></tr></tbody></table>
+            </div>
+          </div>
+<div class="panel" v-if="armor.customPresets.length"><div class="panel-head">自定义预设</div><table class="tbl"><tbody><tr v-for="p in armor.customPresets" :key="p.name"><td>{{ p.name }}</td><td>{{ p.family || '按模型绑定' }}</td><td><button class="btn link small" @click="armor.open(p.name)">正文</button><button class="btn link danger small" @click="armor.removePreset(p.name)">删除</button></td></tr></tbody></table></div></div></details>
+          <!-- 正文模态 -->
+          <div class="modal-mask" v-if="armor.openPreset" @click.self="armor.openPreset=null">
+            <div class="modal wide">
+              <div class="modal-head">
+                {{ armor.openPreset.name }}
+                <span class="spacer"></span>
+                <button class="btn small" @click="armor.openPreset=null">关闭</button>
+              </div>
+              <div class="modal-body">
+                <div class="dim" style="font-size:12px; margin-bottom:8px">
+                  {{ armor.openPreset.description }} · {{ armor.openPreset.file }}
+                </div>
+                <pre class="preset-body">{{ armor.openPreset.body }}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== 请求日志 ===================== -->
+        <div v-if="route==='logs' && logs" class="route logs-page">
+          <div class="page-head">
+            <div class="page-heading"><h1>请求日志</h1><p class="desc">点击行展开换号明细</p></div>
+            <span class="spacer"></span>
+            <button class="btn" @click="logs.reload()">刷新</button>
+          </div>
+
+          <div class="panel" style="margin-bottom:12px">
+            <div class="panel-body" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end">
+              <div style="flex:1; min-width:150px">
+                <label style="font-size:11.5px; color:#5b6b7b; font-weight:600; display:block; margin-bottom:3px">账号</label>
+                <input id="logs-account" type="text" v-model="logs.filter.account_id" list="logs-account-options" placeholder="选择账号名称或填写账号编号" aria-label="筛选账号">
+                <datalist id="logs-account-options"><option v-for="a in logs.accounts" :key="a.id" :value="a.id" :label="a.name+' · '+a.provider"></option></datalist>
+              </div>
+              <div style="flex:1; min-width:120px">
+                <label style="font-size:11.5px; color:#5b6b7b; font-weight:600; display:block; margin-bottom:3px">渠道</label>
+                <select id="logs-provider" aria-label="筛选渠道" v-model="logs.filter.provider">
+                  <option value="">全部</option>
+                  <option v-for="p in logs.providerOptions" :key="p.id" :value="p.id">{{ p.label }}</option>
+                </select>
+              </div>
+              <div style="flex:1; min-width:110px">
+                <label style="font-size:11.5px; color:#5b6b7b; font-weight:600; display:block; margin-bottom:3px">状态</label>
+                <select aria-label="筛选状态" v-model="logs.filter.status">
+                  <option value="">全部</option>
+                  <option value="ok">成功</option>
+                  <option value="error">失败</option>
+                  <option value="streaming">进行中</option>
+                </select>
+              </div>
+              <button class="btn primary" @click="logs.reload(true)">应用</button>
+            </div>
+            <div v-if="logs.optionsError" class="note warn">{{ logs.optionsError }}</div>
+          </div>
+
+          <div class="panel">
+            <div class="loading" v-if="logs.loading">加载中…</div>
+            <div class="empty" v-else-if="logs.error" style="color:#c0392b">{{ logs.error }}</div>
+            <div class="empty" v-else-if="!logs.list.length">没有匹配的请求</div>
+            <table class="tbl" v-else>
+              <thead><tr>
+                <th>时间</th><th>协议</th><th>模型</th><th>账号</th><th>状态</th><th>tokens</th><th>延迟</th><th>换号</th>
+              </tr></thead>
+              <!--
+                每一行请求渲染成一个独立的 <tbody v-for>，里面只有一个 <tr>。
+
+                为什么不写成 <template v-for> 包两个兄弟 <tr>（原来的写法）：
+                petite-vue 把 <template v-for> 当 fragment 处理，当第二个 <tr> 的
+                v-if 翻转时它的插入锚点会变成 null，抛
+                "Cannot read properties of null (reading 'insertBefore')" 并中断整段
+                patch —— 表现就是"点侧边栏没反应 / 页面卡住"。这是该页已知的锚点
+                缺陷（scripts/web-lint.mjs 里专门有一条规则在防它）。
+
+                展开明细也不再是兄弟行，而是主行下面的一个 <tr>，由同一个 v-for
+                迭代产出：循环每次只交付一个可预测的节点组，锚点就不会丢。
+              -->
+              <tbody v-for="r in logs.list" :key="r.id">
+                <tr class="rowlink" @click="logs.toggleExpand(r)">
+                  <td class="dim nowrap mono" style="font-size:12px">{{ $fmt.time(r.created_at) }}</td>
+                  <td class="dim" style="font-size:12px">{{ $proto(r.protocol) }}<span v-if="r.stream"> ⇅</span></td>
+                  <td class="mono" style="font-size:12px">{{ r.mapped_model || r.requested_model }}<span v-if="r.requested_model && r.mapped_model && r.requested_model !== r.mapped_model" class="dim"> ←{{ r.requested_model }}</span></td>
+                  <td class="mono dim" style="font-size:11.5px">{{ r.account_id || '—' }}</td>
+                  <td>
+                    <span v-if="r.status==='ok'" class="badge b-ok">ok</span>
+                    <span v-else-if="r.status==='streaming'" class="badge b-accent">stream</span>
+                    <span v-else class="badge b-danger" :title="r.error_message">{{ r.error_kind || 'error' }}</span>
+                  </td>
+                  <td class="num dim" style="font-size:12px" :title="'prompt ' + $fmt.tokens(r.prompt_tokens) + ' / completion ' + $fmt.tokens(r.completion_tokens)">
+                    {{ $fmt.tokens(r.total_tokens) }}
+                  </td>
+                  <td class="num dim" style="font-size:12px">{{ $fmt.ms(r.latency_ms) }}<span v-if="r.ttfb_ms" class="dim"> / {{ $fmt.ms(r.ttfb_ms) }}</span></td>
+                  <td class="num">{{ r.attempt_count > 1 ? '×' + r.attempt_count : '—' }} <button class="btn link small" :aria-expanded="logs.expanded===r.id" @click.stop="logs.toggleExpand(r)">{{ logs.expanded===r.id ? '收起' : '明细' }}</button></td>
+                </tr>
+                <tr v-if="logs.expanded === r.id" class="expand-row">
+                  <td colspan="8">
+                    <div class="expand-inner">
+                      <div class="dim mb0" style="margin-bottom:6px">
+                        请求 {{ r.id }} · 错误：{{ r.error_message || '（无）' }}
+                      </div>
+                      <div class="dim" style="margin-bottom:6px">本次预设：{{ !r.armor_preset ? '旧日志未记录' : r.armor_preset==='none' ? '未应用' : r.armor_preset }} · 请求成功不代表破甲效果成功</div>
+                      <div v-if="logs.attemptsLoading" class="dim">加载明细…</div>
+                      <div v-else-if="logs.attemptsError" class="note error" role="alert">{{ logs.attemptsError }} <button class="btn small" @click="logs.retryAttempts(r)">重试明细</button></div>
+                      <div v-else-if="!logs.attempts || !logs.attempts.length" class="dim">没有 attempt 记录（旧数据或非网关请求）</div>
+                      <table class="tbl" v-else style="background:#fff">
+                        <thead><tr><th>#</th><th>账号</th><th>结果</th><th>错误</th><th>延迟</th></tr></thead>
+                        <tbody>
+                          <tr v-for="a in logs.attempts" :key="a.id">
+                            <td class="num">{{ a.attempt_index }}</td>
+                            <td class="mono dim" style="font-size:11.5px">{{ a.account_id }}</td>
+                            <td>
+                              <span v-if="a.status==='ok'" class="badge b-ok">ok</span>
+                              <span v-else class="badge b-danger">{{ a.error_kind || a.error_code || 'error' }}</span>
+                            </td>
+                            <td class="dim" style="font-size:12px; max-width:380px; word-break:break-all">{{ a.error_message || '—' }}</td>
+                            <td class="num dim">{{ $fmt.ms(a.latency_ms) }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div style="display:flex; gap:8px; padding:10px 16px; align-items:center" v-if="!logs.loading && logs.list.length">
+              <button class="btn small" :disabled="logs.offset === 0" @click="logs.prev()">← 上一页</button>
+              <span class="dim" style="font-size:12px">第 {{ Math.floor(logs.offset / logs.limit) + 1 }} 页 起</span>
+              <button class="btn small" :disabled="logs.list.length < logs.limit" @click="logs.next()">下一页 →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===================== API 密钥 ===================== -->
+        <div v-if="route==='keys' && keys" class="route keys-page">
+          <div class="page-head">
+            <div class="page-heading"><h1>API 密钥</h1><p class="desc">调用密钥供客户端使用；管理密钥还可配置账号和预设。列表仅展示前缀。</p></div>
+          </div>
+
+          <!-- 新建成功的一次性明文 -->
+          <div class="note warn" v-if="keys.lastCreated" style="border-width:1.5px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px">
+              <b>密钥已创建 — 完整明文只显示这一次，立即保存：</b>
+              <span class="spacer" style="flex:1"></span>
+              <button class="btn small" @click="keys.copyCreated()">复制</button>
+              <button class="btn small" @click="keys.dismissCreated()">我已保存</button>
+            </div>
+            <div class="key-plaintext">{{ keys.lastCreated.key }}</div>
+            <div class="hint">权限：{{ keys.lastCreated.scope === 'admin' ? '管理（含模型调用）' : '仅模型调用' }}</div>
+          </div>
+
+          <div class="panel" id="key-editor">
+            <div class="panel-head">{{ keys.editID ? '编辑密钥权限' : '新建密钥' }}<span class="spacer"></span><button v-if="keys.editID" class="btn small" :disabled="keys.creating" @click="keys.resetForm()">取消编辑</button></div>
+            <div class="panel-body">
+              <div class="grid cols-3">
+                <div class="field"><label for="key-name">名称</label><input id="key-name" type="text" v-model="keys.newName" maxlength="80" placeholder="如手机、开发工具" :disabled="keys.creating"></div>
+                <div class="field"><label for="key-scope">权限级别</label><select id="key-scope" v-model="keys.newScope" :disabled="keys.creating"><option value="inference">仅模型调用</option><option value="admin">管理及调用</option></select><div class="hint">给其他客户端使用时选择仅模型调用。管理密钥可以修改全部配置及密钥权限。</div></div>
+                <div class="field"><label for="key-armor">破甲使用权限</label><label class="key-check"><input id="key-armor" type="checkbox" v-model="keys.permissions.armor_allowed" @change="keys.armorPermissionChanged()" :disabled="keys.creating">允许使用破甲</label><label class="key-check"><input id="key-armor-enabled" type="checkbox" v-model="keys.permissions.armor_enabled" :disabled="keys.creating || !keys.permissions.armor_allowed">此密钥开启破甲</label><div class="hint">授予权限后仍可单独开关。关闭开关保留使用权限；未获准或未开启时，请求头不能强制启用。创建后也可在下方列表随时切换。</div></div>
+              </div>
+              <div class="grid cols-2 key-permission-grid">
+                <div class="field"><label>可调用账号</label><label class="key-check"><input id="key-all-accounts" type="checkbox" v-model="keys.permissions.all_accounts" :disabled="keys.creating">全部账号（含以后新增的账号）</label>
+                  <div v-if="!keys.permissions.all_accounts" class="key-options"><label v-for="a in keys.options.accounts" :key="a.id" class="key-check"><input type="checkbox" :value="a.id" v-model="keys.permissions.account_ids" :disabled="keys.creating"><span>{{ a.name || a.id }} <small class="dim">{{ a.provider }}{{ a.enabled ? '' : ' · 已停用' }}</small></span></label><label v-for="id in keys.missingAccounts" :key="id" class="key-check"><input type="checkbox" :value="id" v-model="keys.permissions.account_ids" :disabled="keys.creating"><span class="dim">已删除的账号（取消勾选以移除） · {{ id }}</span></label><span v-if="!keys.options.accounts.length" class="hint">暂无账号，先到账号池添加。</span></div>
+                  <div class="hint" v-if="!keys.permissions.all_accounts">已选 {{ keys.permissions.account_ids.length }} 个；未选任何账号时禁止调用。换号只会使用已授权账号。</div>
+                </div>
+                <div class="field"><label>可调用模型</label><label class="key-check"><input id="key-all-models" type="checkbox" v-model="keys.permissions.all_models" :disabled="keys.creating">全部模型（含以后新增的型号）</label>
+                  <div v-if="!keys.permissions.all_models"><input id="key-model-filter" type="search" v-model="keys.modelQuery" placeholder="搜索上游型号"><div class="key-options"><label v-for="m in keys.filteredModels" :key="m.id" class="key-check"><input type="checkbox" :value="m.id" v-model="keys.permissions.models" :disabled="keys.creating"><span class="mono">{{ m.id }}</span></label></div><label for="key-extra-models">补充型号（每行一个）</label><textarea id="key-extra-models" v-model="keys.extraModels" rows="2" :disabled="keys.creating" placeholder="目录里暂时没有的具体型号"></textarea><div class="hint">裸型号可跨渠道使用；例如 workbuddy/glm-5.2 只允许该渠道。按完整型号匹配，空白名单禁止调用。</div></div>
+                </div>
+              </div>
+              <p class="err" v-if="keys.optionsError">{{ keys.optionsError }}</p><p class="err" v-if="keys.formError">{{ keys.formError }}</p>
+              <button id="key-save" class="btn primary" :disabled="keys.creating || keys.loading" @click="keys.create()">{{ keys.creating ? '保存中…' : keys.editID ? '保存权限' : '＋ 新建密钥' }}</button>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              密钥列表
+              <span class="spacer"></span>
+              <button class="btn small" :disabled="keys.loading" @click="keys.reload()">刷新</button>
+            </div>
+            <div class="loading" v-if="keys.loading">加载中…</div>
+            <div class="empty" v-else-if="keys.error" style="color:#c0392b">{{ keys.error }}</div>
+            <div class="empty" v-else-if="!keys.list.length">暂无可显示的密钥，请刷新列表或创建调用密钥。</div>
+            <div class="key-table-wrap" v-else><table class="tbl">
+              <thead><tr><th>名称</th><th>前缀</th><th>权限</th><th>调用范围</th><th>破甲</th><th>状态</th><th>创建</th><th>最近使用</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="k in keys.list" :key="k.id">
+                  <td><b>{{ k.name || '（未命名）' }}</b><div class="dim mono" style="font-size:11px">{{ k.id }}</div></td>
+                  <td class="mono">{{ k.key_prefix }}…</td>
+                  <td>{{ k.scope === 'admin' ? '管理及调用' : '仅模型调用' }}</td>
+                  <td><div>{{ k.permissions.all_accounts ? '全部账号' : k.permissions.account_ids.length + ' 个账号' }}</div><div class="dim">{{ k.permissions.all_models ? '全部模型' : k.permissions.models.length + ' 个型号' }}</div></td>
+                  <td><span v-if="!k.permissions.armor_allowed" class="badge b-off">未授权</span><span v-else><span :class="['badge',k.permissions.armor_enabled ? 'b-ok' : 'b-off']">{{ k.permissions.armor_enabled ? '已开启' : '已关闭' }}</span><button class="btn link small" :data-key-armor="k.id" :disabled="keys.toggling[k.id] || keys.creating" @click="keys.toggleArmor(k)">{{ keys.toggling[k.id] ? '保存中…' : k.permissions.armor_enabled ? '关闭破甲' : '开启破甲' }}</button></span></td>
+                  <td><span v-if="k.enabled" class="badge b-ok">启用</span><span v-else class="badge b-off">停用</span></td>
+                  <td class="dim" style="font-size:12px">{{ $fmt.time(k.created_at) }}</td>
+                  <td class="dim" style="font-size:12px">{{ k.last_used_at ? $fmt.ago(k.last_used_at) : '从未' }}</td>
+                  <td><button class="btn link small" @click="keys.edit(k)">编辑</button><button class="btn link danger small" @click="keys.confirmDelete(k)">删除</button></td>
+                </tr>
+              </tbody>
+            </table></div>
+          </div>
+
+          <div class="dim" style="font-size:12px">
+            最后一个管理密钥不能删除或降为调用密钥。旧密钥保留升级前的许可和启用状态；新密钥默认未授权且关闭。权限或开关保存后，下一次请求生效，已开始的回复会继续完成。
+          </div>
+        </div>
+
+        <div v-if="route==='settings' && settings" class="route settings-page">
+          <div class="page-head">
+            <h1>连接设置</h1>
+          </div>
+
+          <div class="panel settings-connection">
+            <div class="panel-head">当前浏览器连接配置</div>
+            <div class="panel-body">
+              <div class="field">
+                <label for="field-31">后端地址（Base URL）</label>
+                <input id="field-31" type="text" v-model="settings.baseVal" :disabled="settings.saving" :placeholder="'默认（同源）'">
+                <div class="hint">留空 = 与页面同源（控制台由后端自身服务时最简）。示例：<code class="inline">http://127.0.0.1:8787</code></div>
+              </div>
+              <div class="field">
+                <label for="field-32">API Key</label>
+                <input id="field-32" type="password" v-model="settings.keyVal" :disabled="settings.saving" autocomplete="off" placeholder="rp_...">
+                <div class="hint">后台需要管理密钥，仅保存在当前浏览器会话。可在 <a href="#/keys">API 密钥页</a> 新建。</div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center">
+                <button id="settings-save" class="btn primary" :disabled="settings.saving" @click="settings.save()">{{ settings.saving ? '正在验证…' : '保存并验证' }}</button>
+                <button class="btn" :disabled="settings.saving" @click="settings.reset()">恢复已保存配置</button>
+                <span v-if="settings.saved" class="dim">✓ 已保存</span>
+                <span v-if="!authed && conn.connError" style="color:#c0392b; font-size:13px">{{ conn.connError }}</span>
+              </div>
+              <div v-if="settings.error" id="settings-error" class="note error" role="alert">{{ settings.error }}</div>
+              <div class="hint">输入仅修改草稿，验证成功后才应用。失败时原连接保持不变。</div>
+            </div>
+          </div>
+
+          
+
+          <div class="panel settings-card">
+            <div class="panel-head">会话</div>
+            <div class="panel-body">
+              <button class="btn danger" @click="logout()">清除本机 Key 并退出</button>
+              <div class="hint" style="margin-top:6px">不影响后端密钥，只清除本浏览器保存的副本。</div>
+            </div>
+          </div>
+
+          <div class="panel settings-card">
+            <div class="panel-head">关于</div>
+            <div class="panel-body dim" style="font-size:12.5px">
+              控制台版本 <span class="mono">{{ $buildVersion }}</span>（{{ $buildAt }}）<br>
+              后端 <span class="mono" v-if="conn.health">v{{ conn.health.version }} · {{ conn.health.commit || 'unknown' }}</span><br>
+              <a :href="settings.healthURL" target="_blank" rel="noopener noreferrer">/healthz</a> ·
+              <a :href="settings.readyURL" target="_blank" rel="noopener noreferrer">/readyz</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+  <!-- ======================= 全局弹层 ======================= -->
+  <div class="modal-mask" v-if="modal.open" @click.self="closeModal()">
+    <div class="modal" :class="{wide: modal.wide}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head"><span id="modal-title">{{ modal.title }}</span><span class="spacer"></span>
+        <button class="btn small" aria-label="关闭对话框" @click="closeModal()">✕</button>
+      </div>
+      <div class="modal-body" v-html="modal.html"></div>
+      <div class="modal-foot" v-if="modal.footer">
+        <button class="btn" @click="closeModal()">取消</button>
+        <button class="btn" :class="{danger: modal.footer.danger}" @click="modal.footer.onConfirm()">
+          {{ modal.footer.confirmText || '确认' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- toast -->
+  <div v-if="toast.open" class="toast" :class="{error:!toast.ok}" role="status" aria-live="polite">
+    {{ toast.text }}
+  </div>
+
+</div>
+
+<script src="vendor/dayjs.min.js"></script><script src="vendor/dayjs.zh-cn.js"></script>
+<script src="vendor/dayjs.relativeTime.js"></script>
+<script src="vendor/petite-vue.js"></script>
+<script src="api.js"></script>
+<script src="chat.js"></script>
+<script src="overview.js"></script>
+  <script src="quota.js"></script>
+  <script src="accounts.js"></script>
+
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+name: relaypool-personal
+services:
+  relaypool:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+      args:
+        APP_VERSION: personal-20261019
+        APP_COMMIT: ${RELAYPOOL_COMMIT:-unknown}
+    image: relaypool:personal
+    container_name: relaypool
+    environment:
+      RELAYPOOL_LISTEN: 0.0.0.0:8787
+      RELAYPOOL_DATA_DIR: /data
+      RELAYPOOL_RUNTIME_DIR: /run/relaypool
+      TZ: Asia/Shanghai
+      RELAYPOOL_PROXY_URL: ${RELAYPOOL_PROXY_URL:-}
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - personal-data:/data
+    tmpfs:
+      - /run/relaypool:mode=0700,uid=10001,gid=10001
+      - /tmp:mode=1777
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+volumes:
+  personal-data:
+    name: relaypool-personal-data

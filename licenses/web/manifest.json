@@ -1,0 +1,14 @@
+[
+  {
+    "name": "petite-vue",
+    "url": "https://raw.githubusercontent.com/vuejs/petite-vue/v0.4.1/LICENSE",
+    "file": "licenses/web/petite-vue.txt",
+    "sha256": "e0199d3bf04910650f174ef745c318258c942f2f48faa8674b52183103ca6c00"
+  },
+  {
+    "name": "dayjs",
+    "url": "https://raw.githubusercontent.com/iamkun/dayjs/dev/LICENSE",
+    "file": "licenses/web/dayjs.txt",
+    "sha256": "5faab7526d055651be3aab769d58897be6bd91f3d39d137f25f12dba1b31d5dc"
+  }
+]

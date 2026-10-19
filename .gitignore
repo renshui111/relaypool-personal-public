@@ -1,0 +1,7 @@
+data*/
+private/
+bin/
+.env*
+*.db*
+*.key
+node_modules/
