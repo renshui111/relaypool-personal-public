@@ -1,0 +1,30 @@
+{
+  "listen": "127.0.0.1:8787",
+  "routing": "round-robin",
+  "cross_provider_pool": false,
+  "pool": {
+    "max_attempts": 4,
+    "max_inflight": 4,
+    "breaker_threshold": 3,
+    "breaker_cooldown": "30m",
+    "breaker_cooldown_max": "6h",
+    "default_cooldown": "15s",
+    "min_rate_limit_cooldown": "30s",
+    "max_retry_after": "10m",
+    "prefer_expiring": true,
+    "expiring_soon": "168h"
+  },
+  "session": {"enabled": true, "ttl": "30m", "capacity": 10000},
+  "upstream": {"timeout": "120s", "header_timeout": "120s", "idle_timeout": "300s"},
+  "schedule": {
+    "catalog_refresh": "30m",
+    "checkin_enabled": true,
+    "checkin_hours": [9, 21],
+    "keepalive_enabled": true,
+    "keepalive_hours": [22],
+    "cooldown_gc": "5m"
+  },
+  "logging": {"request_log_enabled": true, "retention_days": 7, "archive_bodies": false},
+  "armor": {"dir": "prompts", "allow_per_request": true},
+  "access": {"mode": "loopback"}
+}
