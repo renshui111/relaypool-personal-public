@@ -4,7 +4,7 @@
 
 启动顺序是默认值 → `-config` 指定的 JSON → 非空环境变量。部分设置还会在 SQLite 中持久化，例如账号、密钥权限和预设定制；它们不是修改 JSON 就会全部重置的临时配置。
 
-`compose.yml` 目前只从 `.env` 引用运行时 `RELAYPOOL_PROXY_URL` 和构建时 `RELAYPOOL_COMMIT`。把其他变量写入 `.env` 并不会自动注入服务：需在服务的 `environment` 中显式声明，或使用 JSON 配置文件。
+`compose.yml` 从 `.env` 引用运行时 `RELAYPOOL_PROXY_URL`，以及构建时 `RELAYPOOL_VERSION`、`RELAYPOOL_COMMIT`。把其他变量写入 `.env` 并不会自动注入服务：需在服务的 `environment` 中显式声明，或使用 JSON 配置文件。
 
 参考文件：[`examples/config.example.json`](../examples/config.example.json)、[`examples/env.example`](../examples/env.example)。示例不包含真实凭证。
 

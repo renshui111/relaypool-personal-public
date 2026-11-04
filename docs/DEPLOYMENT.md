@@ -71,7 +71,7 @@ Copy-Item examples/env.example .env
 
 Linux 若没有该主机名，可在 Compose 服务中配置 `extra_hosts: ["host.docker.internal:host-gateway"]`，并确认宿主机代理监听地址及防火墙允许容器访问。实际代理端口以自己的配置为准。
 
-`.env` 中的值只有被 Compose 显式引用才会传入构建或容器。当前文件引用 `RELAYPOOL_PROXY_URL` 与 `RELAYPOOL_COMMIT`；其他设置按[配置参考](CONFIGURATION.md)添加。
+`.env` 中的值只有被 Compose 显式引用才会传入构建或容器。当前文件引用 `RELAYPOOL_PROXY_URL`、`RELAYPOOL_VERSION` 与 `RELAYPOOL_COMMIT`；其他设置按[配置参考](CONFIGURATION.md)添加。
 
 ## 构建下载失败
 

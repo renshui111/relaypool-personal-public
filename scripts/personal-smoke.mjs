@@ -49,6 +49,19 @@ try{
  }
  check(await evaluate(`!document.querySelector('a[href="#/users"],a[href="#/commerce"],a[href="#/network"]')`),'removed navigation');
  for(const route of ['users','commerce','network']){await evaluate(`location.hash='#/${route}'`);await sleep(300);check(await evaluate(`window.RPAPP.route==='overview'`),'removed browser route '+route);}
+ if(process.env.RELAYPOOL_SMOKE_HUAWEI==='1'){
+  await evaluate(`location.hash='#/accounts'`);
+  for(let i=0;i<100;i++){if(await evaluate(`window.RPAPP.route==='accounts' && window.RPAPP.accounts.providers.length>0`))break;await sleep(100);}
+  for(const family of ['codearts','officeace']){
+   check(await evaluate(`window.RPAPP.accounts.providers.some(p=>p.id===${JSON.stringify(family)}&&p.browser_login&&p.regions.length===1&&p.regions[0]==='cn')`),'Huawei provider '+family);
+   await evaluate(`window.RPAPP.accounts.form.provider=${JSON.stringify(family)};window.RPAPP.accounts.selectProvider()`);await sleep(50);
+   check(await evaluate(`window.RPAPP.accounts.form.region==='cn' && window.RPAPP.accounts.form.auth_type==='oauth'`),'Huawei credential form '+family);
+   check(await evaluate(`window.RPAPP.accounts.credentialExample.includes(${JSON.stringify(family==='codearts'?'access_key':'model_app_key')})`),'Huawei credential guidance '+family);
+  }
+  await evaluate(`window.RPAPP.accounts.login.openPanel();window.RPAPP.accounts.login.form.provider='codearts';window.RPAPP.accounts.selectLoginProvider()`);
+  check(await evaluate(`window.RPAPP.accounts.login.form.region==='cn' && window.RPAPP.accounts.loginProviders.some(p=>p.id==='officeace')`),'Huawei browser login selection');
+  await evaluate(`window.RPAPP.accounts.closeLogin()`);
+ }
  check(errors.length===0,'no browser exceptions: '+errors.join('; '));
  console.log(JSON.stringify({passed:true,checks,real_upstream_chat_called:false}));
 }finally{

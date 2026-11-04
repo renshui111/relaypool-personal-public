@@ -9,6 +9,8 @@ import (
 // 能力清单只展示已经注册的渠道，登录态与官方 API 分开说明。
 func (s *Server) handlePlatforms(w http.ResponseWriter, r *http.Request) {
 	entries := []map[string]any{
+		{"id": "codearts", "name": "华为云码道 CodeArts", "auth_types": []string{"oauth"}, "default_region": "cn", "regions": []string{"cn"}, "note": "接入码道自身模型服务；导入本人临时 AK/SK、security_token、expires_at，或显式 credential_kind=aksk 的永久 AK/SK。模型目录从上游查询；与华为云 MaaS API Key 不通用。", "documentation": "https://codearts.huaweicloud.com/"},
+		{"id": "officeace", "name": "华为云果办 OfficeAce", "auth_types": []string{"oauth"}, "default_region": "cn", "regions": []string{"cn"}, "note": "接入果办自身模型网关；导入本人 model_app_key、model_app_secret 及下发的 model_base_url。聊天使用 Basic 应用鉴权，不接受码道 AK/SK 代替；模型目录不代表每个型号均有推理权限。", "documentation": "https://www.huaweicloud.com/product/officeace.html"},
 		{"id": "trae-intl", "name": "Trae 国际远程会话", "auth_types": []string{"oauth"}, "default_region": "global", "regions": []string{"global"}, "note": "导入本人 Trae 国际完整登录态（access_token、uid，可选 refresh_token、原 web_id、referer_origin、timezone）。通过远程会话协议提供文本回复，不自动创建项目。当前不支持客户端函数工具、图片、采样或思考控制；创建成功后不自动重复换号。", "documentation": "https://www.trae.ai"},
 		{"id": "qoder", "name": "Qoder 登录态", "auth_types": []string{"oauth"}, "default_region": "cn", "regions": []string{"cn", "global"}, "note": "导入本人 Qoder 完整账户 JSON（account/auth），或填写 personal_token 与 region；直接调用桌面协议，无需额外运行 CLI。型号填写 Qoder 实际 key，例如 auto。原生 CLI 加密凭证不可直接导入。", "documentation": "https://qoder.com"},
 		{"id": "trae", "name": "Trae 国内聊天登录态", "auth_types": []string{"oauth"}, "default_region": "cn", "regions": []string{"cn"}, "note": "导入本人国内完整账户 JSON：access_token、uid、machine_id、device_id；保留原设备信息。可选 variant=solo/cn、scene=solo_work_lite/chat_v3。国际版请选择 Trae 国际远程会话渠道。", "documentation": "https://www.trae.cn"},

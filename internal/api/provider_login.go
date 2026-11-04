@@ -50,12 +50,16 @@ func (s *Server) startProviderLogin(w http.ResponseWriter, r *http.Request, req 
 	o.Region = strings.ToLower(strings.TrimSpace(req.Region))
 	if o.Region == "" {
 		o.Region = "global"
-		if family == "qoder" || family == "trae" {
+		if family == "qoder" || family == "trae" || family == "codearts" || family == "officeace" {
 			o.Region = "cn"
 		}
 	}
 	if (family == "trae" && o.Region != "cn") || (family == "trae-intl" && o.Region != "global") || ((family == "gemini" || family == "codex" || family == "claude") && o.Region != "global") {
 		writeError(w, 400, "invalid_region", "所选地区与平台不匹配")
+		return
+	}
+	if (family == "codearts" || family == "officeace") && o.Region != "cn" {
+		writeError(w, 400, "invalid_region", "当前华为渠道仅支持中国站")
 		return
 	}
 	_, port, _ := net.SplitHostPort(s.cfg.Listen)
@@ -219,6 +223,18 @@ func (s *Server) handleCompleteAccountLogin(w http.ResponseWriter, r *http.Reque
 	}
 	if p.provider == "claude" && s.replyCompletedClaudeLogin(w, ctx, p.id) {
 		return
+	}
+	if p.provider == "codearts" {
+		p.flow.mu.Lock()
+		continuation := ""
+		if len(p.flow.session.Raw) == 0 {
+			continuation = p.flow.session.AuthURL
+		}
+		p.flow.mu.Unlock()
+		if continuation != "" {
+			writeJSON(w, 200, map[string]string{"status": loginPending, "continue_url": continuation, "message": "请继续浏览器登录，然后回填最终带 code 的完整地址"})
+			return
+		}
 	}
 	writeJSON(w, 200, map[string]string{"status": loginPending, "message": "已接收授权，正在保存登录态"})
 }

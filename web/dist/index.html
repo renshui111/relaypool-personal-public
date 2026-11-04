@@ -276,14 +276,16 @@
                   </div>
                 </div>
                 <div class="note info" v-if="accounts.login.userCode">在授权页面输入设备验证码：<b class="mono">{{ accounts.login.userCode }}</b></div>
+                <div v-if="accounts.login.form.provider==='codearts'" class="note info">码道使用浏览器授权码回填，不需安装客户端。浏览器跳到无法连接的 127.0.0.1:12800 页面时，复制完整地址粘贴到下方；如含 secret 和 redirect，提交后点击更新的授权链接继续，再回填带 code 的最终地址。</div>
+                <div v-if="accounts.login.form.provider==='officeace'" class="note info">果办在华为云页面登录授权后自动保存。账号须已开通果办模型权益；未开通时按提示到官方客户端办理。不会自动注册或领取付费服务。</div>
                 <div class="field" v-if="accounts.login.mode==='callback' || accounts.login.mode==='code'">
                   <div v-if="accounts.login.form.provider==='claude'">
                     <label for="login-callback">{{ accounts.login.mode==='code' ? 'Claude 完整授权码' : '回调地址或完整授权码（自动回调未完成时）' }}</label>
                     <p class="hint" id="claude-login-code-hint">{{ accounts.login.mode==='code' ? '复制 Claude 授权完成页面提供的完整授权码，包含 # 后面的状态，再粘贴到这里。也可粘贴本次完整回调地址。' : '本机自动接收回调；如果没有完成，请粘贴本次完整回调地址或包含 # 后状态的授权码。' }}一次性授权信息请勿分享。</p>
                   </div>
                   <div v-else>
-                  <label for="login-callback">回调地址（仅在自动回调未完成时粘贴）</label>
-                  <p class="hint">本机自动接收回调。若回调未完成，请复制授权后的页面完整地址粘贴到这里；此地址含一次性授权信息，请勿分享。</p>
+                  <label for="login-callback">{{ accounts.login.form.provider==='codearts' ? '码道完整回调地址（手动回填）' : '回调地址（仅在自动回调未完成时粘贴）' }}</label>
+                  <p class="hint">{{ accounts.login.form.provider==='codearts' ? '浏览器跳到 127.0.0.1:12800 后，将地址栏完整内容粘贴到这里；两阶段授权时按上方提示继续。' : '本机自动接收回调。若回调未完成，请复制授权后的页面完整地址粘贴到这里。' }}此地址含一次性授权信息，请勿分享。</p>
                   </div>
                   <input id="login-callback" type="password" autocomplete="off" v-model="accounts.login.callbackInput" :placeholder="accounts.login.form.provider==='claude' ? '粘贴完整授权码 code#state 或回调地址' : '粘贴本次登录返回的完整地址'">
                   <button class="btn small" :disabled="accounts.login.completing || !accounts.login.callbackInput.trim()" @click="accounts.completeLogin()">接收授权并保存</button>

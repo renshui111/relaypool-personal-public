@@ -21,12 +21,17 @@ const Family = "openai-compatible"
 type Config struct {
 	Timeout, HeaderTimeout, IdleTimeout time.Duration
 	ProxyURL                            string
+	// Native adapters can reuse the wire conversion with their own authentication.
+	Authenticate func(*http.Request, provider.Credential, []byte) error
+	RedactError  func(string, provider.Credential) string
 }
 type Client struct {
 	family, defaultBaseURL string
 	profile                Profile
 	http                   *http.Client
 	timeout, idle          time.Duration
+	authenticate           func(*http.Request, provider.Credential, []byte) error
+	redactError            func(string, provider.Credential) string
 }
 
 func New(cfg Config) *Client {
@@ -40,7 +45,7 @@ func NewFor(family, defaultBaseURL string, cfg Config) *Client {
 	if proxy, err := url.Parse(cfg.ProxyURL); err == nil && cfg.ProxyURL != "" {
 		transport.Proxy = http.ProxyURL(proxy)
 	}
-	return &Client{family: family, defaultBaseURL: defaultBaseURL, profile: profileFor(family), http: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, timeout: cfg.Timeout, idle: cfg.IdleTimeout}
+	return &Client{family: family, defaultBaseURL: defaultBaseURL, profile: profileFor(family), http: &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, timeout: cfg.Timeout, idle: cfg.IdleTimeout, authenticate: cfg.Authenticate, redactError: cfg.RedactError}
 }
 func (c *Client) Family() string    { return c.family }
 func (*Client) Kind() provider.Kind { return provider.KindInProcess }
@@ -96,6 +101,11 @@ func (c *Client) request(ctx context.Context, cred provider.Credential, method, 
 		request.Header.Set("Authorization", "Bearer "+cred.Field("api_key"))
 	}
 	request.Header.Set("Content-Type", "application/json")
+	if c.authenticate != nil {
+		if err := c.authenticate(request, cred, body); err != nil {
+			return nil, err
+		}
+	}
 	if value := cred.Field("organization"); value != "" {
 		request.Header.Set("OpenAI-Organization", value)
 	}
@@ -114,7 +124,13 @@ func (c *Client) request(ctx context.Context, cred provider.Credential, method, 
 		defer response.Body.Close()
 		raw, _ := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 		// 上游可能回显请求，清除当前密钥后才能进入错误日志。
-		clean := strings.ReplaceAll(string(raw), cred.Field("api_key"), "[已隐藏]")
+		clean := string(raw)
+		if key := cred.Field("api_key"); key != "" {
+			clean = strings.ReplaceAll(clean, key, "[已隐藏]")
+		}
+		if c.redactError != nil {
+			clean = c.redactError(clean, cred)
+		}
 		retry := time.Duration(0)
 		if date, err := http.ParseTime(response.Header.Get("Retry-After")); err == nil {
 			retry = time.Until(date)

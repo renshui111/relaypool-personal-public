@@ -75,6 +75,8 @@ COPY internal/provider/subscriptions/NOTICE.md internal/provider/subscriptions/L
 COPY LICENSE NOTICE.md /app/licenses/
 COPY licenses/web /app/licenses/web/
 COPY licenses/protocols /app/licenses/protocols/
+COPY licenses/huawei /app/licenses/huawei/
+COPY internal/provider/huawei/NOTICE.md /app/licenses/huawei/NOTICE.md
 COPY --from=build /out/licenses/go /app/licenses/go/
 
 USER relaypool

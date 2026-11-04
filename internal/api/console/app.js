@@ -456,6 +456,8 @@
       get usesAPIKey() {return this.form.provider!=="workbuddy" && this.form.auth_type==="api_key";},
 	  get providerRegions() {return this.selectedProvider.regions || ["cn","global"];},
 	  get credentialExample() {
+		if(this.form.provider==="codearts")return '{"access_key":"本人临时AK","secret_key":"本人临时SK","security_token":"本人安全令牌","expires_at":"实际到期时间，例如 2026-11-04T12:00:00Z"}';
+		if(this.form.provider==="officeace")return '{"model_app_key":"本人应用Key","model_app_secret":"本人应用Secret","model_base_url":"https://账号下发的模型网关/v2"}';
 		if(this.form.provider==="trae-intl")return '{"region":"global","access_token":"本人国际令牌","refresh_token":"本人国际刷新令牌","uid":"本人账号ID","referer_origin":"https://work.trae.ai","timezone":"Asia/Shanghai","models":["auto"]}';
 		if(this.form.provider==="qoder")return '{"auth":{"accessToken":"本人令牌","refreshToken":"drt-本人刷新令牌","region":"cn"},"account":{"uid":"本人账号ID"}}';
 		if(this.form.provider==="trae")return '{"access_token":"本人令牌","uid":"本人账号ID","machine_id":"原设备标识","device_id":"原设备ID","variant":"solo","scene":"solo_work_lite"}';
@@ -706,7 +708,7 @@
       closeLogin(){this.login.close();},
       async completeLogin() {
         const L=this.login,id=L.loginId,epoch=L._epoch;if(L.completing||!L.callbackInput.trim())return;L.completing=true;L.error="";
-        try{await RP.completeLogin(id,L.callbackInput.trim());if(L._epoch!==epoch)return;L.callbackInput="";await L.poll();}
+        try{const result=await RP.completeLogin(id,L.callbackInput.trim());if(L._epoch!==epoch)return;L.callbackInput="";if(result.continue_url){const target=new URL(result.continue_url);if(target.protocol!=="https:"||!['auth.huaweicloud.com','codearts.huaweicloud.com'].includes(target.hostname)||target.username||target.password)throw new Error('后续登录地址无效');L.authUrl=target.href;L.error='请点击授权链接继续登录，再粘贴最终带 code 的完整回调地址';return;}await L.poll();}
         catch(e){if(L._epoch===epoch)L.error=e.message;}finally{if(L._epoch===epoch)L.completing=false;}
       },
       async startLogin() {
@@ -1367,9 +1369,9 @@
   // 塞进第二个对象，是因为 createApp 只接受一个根 scope。
   app.$fmt = fmt;
   app.$esc = esc;
-  app.$version = "personal-20261019";
-  app.$buildVersion = "personal-20261019";
-  app.$buildAt = "2026-10-19T07:59:13Z";
+  app.$version = "personal-huawei-20261104";
+  app.$buildVersion = "personal-huawei-20261104";
+  app.$buildAt = "2026-11-04T10:54:51Z";
   app.$base = "http://127.0.0.1:8787";
   app.$armorGroups = function (armorInfo) {
     if (!armorInfo || !armorInfo.data) return [];

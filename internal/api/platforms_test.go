@@ -35,7 +35,7 @@ func TestPlatformsRegisteredAndProtected(t *testing.T) {
 	var out struct {
 		Data []map[string]any `json:"data"`
 	}
-	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &out) != nil || len(out.Data) != 9+len(compatible.Profiles()) {
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &out) != nil || len(out.Data) != 11+len(compatible.Profiles()) {
 		t.Fatal("平台能力清单未齐全")
 	}
 	unauthorized := httptest.NewRecorder()

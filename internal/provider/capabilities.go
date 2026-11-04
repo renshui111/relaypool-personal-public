@@ -42,7 +42,7 @@ func CheckinPeriod(t time.Time, capability CheckinCapability) string {
 
 func BrowserLoginSupported(family string) bool {
 	switch family {
-	case "workbuddy", "qoder", "trae", "trae-intl", "codex", "gemini", "claude":
+	case "workbuddy", "qoder", "trae", "trae-intl", "codex", "gemini", "claude", "codearts", "officeace":
 		return true
 	}
 	return false

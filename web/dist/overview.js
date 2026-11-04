@@ -14,7 +14,7 @@
     const date=new Date(start);
     return Number.isFinite(date.getTime()) ? date.toLocaleString("zh-CN",{month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}) : "—";
   }
-  const providerNames={workbuddy:"WorkBuddy",qoder:"Qoder",openai:"OpenAI",claude:"Claude",gemini:"Gemini",deepseek:"DeepSeek",codex:"Codex","trae-intl":"Trae 国际",trae:"Trae 国内","openai-compatible":"兼容 API",unattributed:"未分配渠道"};
+  const providerNames={workbuddy:"WorkBuddy",qoder:"Qoder",openai:"OpenAI",claude:"Claude",gemini:"Gemini",deepseek:"DeepSeek",codex:"Codex",codearts:"华为云码道",officeace:"果办 OfficeAce","trae-intl":"Trae 国际",trae:"Trae 国内","openai-compatible":"兼容 API",unattributed:"未分配渠道"};
   const refreshPreference="relaypool.overview.autoRefresh";
   function readRefreshPreference(){try{return window.localStorage.getItem(refreshPreference)!=="false";}catch{return true;}}
   window.RPOverview={createVM(reactive){

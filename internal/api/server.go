@@ -21,6 +21,7 @@ import (
 	"github.com/relaypool/relaypool/internal/pool"
 	"github.com/relaypool/relaypool/internal/provider"
 	"github.com/relaypool/relaypool/internal/provider/compatible"
+	"github.com/relaypool/relaypool/internal/provider/huawei"
 	"github.com/relaypool/relaypool/internal/provider/native"
 	"github.com/relaypool/relaypool/internal/provider/subscriptions"
 	"github.com/relaypool/relaypool/internal/provider/workbuddy"
@@ -102,6 +103,8 @@ func New(opts Options) *Server {
 	registry.Register(subscriptions.NewTrae(subscriptionConfig))
 	registry.Register(subscriptions.NewTraeIntl(subscriptionConfig))
 	compatibleConfig := compatible.Config{Timeout: opts.Config.Upstream.Timeout, HeaderTimeout: opts.Config.Upstream.HeaderTimeout, IdleTimeout: opts.Config.Upstream.IdleTimeout, ProxyURL: opts.Config.Upstream.ProxyURL}
+	registry.Register(huawei.New(huawei.CodeArts, compatibleConfig))
+	registry.Register(huawei.New(huawei.OfficeAce, compatibleConfig))
 	for _, profile := range compatible.Profiles() {
 		registry.Register(compatible.NewFor(profile.ID, profile.DefaultBaseURL, compatibleConfig))
 	}
