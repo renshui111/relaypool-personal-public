@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#151c2c">
+<meta name="theme-color" content="#f5f1e9">
 <meta name="robots" content="noindex, nofollow">
 <title>relaypool · 号池工作台</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f6bed'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Segoe UI,sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ER%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="app.css">
-<link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="workspace.css">
+<link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
 <div id="app" v-cloak>
@@ -88,61 +88,79 @@
         <!-- 概览按当前状态、调用统计、排查入口组织，所有数字均来自实际数据。 -->
         <div v-if="route==='overview' && overview" class="route overview-page">
           <div class="page-head overview-heading">
-            <div class="page-heading"><h1>概览</h1><p class="desc">{{ overview.lastUpdated ? '账号状态更新于 '+$fmt.time(overview.lastUpdated) : overview.refreshing ? '正在读取当前状态' : '账号状态未读取' }}</p></div><span class="spacer"></span>
+            <div class="page-heading"><h1>运行概览</h1><p class="desc">{{ overview.lastUpdated ? '账号状态更新于 '+$fmt.time(overview.lastUpdated) : overview.refreshing ? '正在读取当前状态' : '账号状态未读取' }}</p></div><span class="spacer"></span>
             <label class="overview-refresh"><input id="overview-auto-refresh" type="checkbox" :checked="overview.autoRefresh" @change="overview.setAutoRefresh($event.target.checked)"> 每 30 秒刷新</label>
             <button id="overview-refresh" class="btn" :disabled="overview.refreshing || overview.statsLoading" @click="overview.reload()">{{ overview.refreshing ? '刷新中…' : '刷新数据' }}</button>
           </div>
           <div v-if="overview.error" class="note error" role="alert">{{ overview.error }}。上次数据仅供参考，请刷新重试。</div>
           <div v-if="overview.failedSections.length" id="overview-partial-error" class="note warn" role="alert">{{ overview.failedSections.join('、') }}读取失败；未更新的内容仅供参考，请刷新重试。</div>
-          <section class="overview-status overview-intro">
-            <div><span class="section-kicker">运行状态</span><h2>{{ overview.serviceTitle }}</h2><p>{{ overview.serviceNote }}</p></div>
+          <section class="overview-status overview-intro" :class="overview.serviceTone">
+            <div><span class="service-pill"><i></i>{{ overview.serviceBadge }}</span><h2>{{ overview.serviceTitle }}</h2><p>{{ overview.serviceNote }}</p></div>
             <div class="overview-actions"><a href="#/chat" class="btn primary">开始聊天 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a><a href="#/accounts" class="btn">管理账号</a><a href="#/logs" class="btn link">查看调用记录 →</a></div>
           </section>
-          <div class="grid cols-4 overview-counts">
-            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.enabled : '—' }}<small> / {{ overview.lastUpdated ? overview.counts.total : '—' }}</small></div><div class="label">启用 / 全部账号</div></div>
-            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.ready : '—' }}</div><div class="label">可调度账号 · {{ overview.counts.cooldown }} 个冷却中</div></div>
-            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.models : '—' }}</div><div class="label">目录型号（去重）</div></div>
-            <div class="stat"><span class="overview-stat-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div class="num">{{ overview.lastUpdated ? overview.counts.inflight : '—' }}</div><div class="label">当前进行中的调用</div></div>
+          <div class="overview-counts health-strip">
+            <a href="#/accounts" class="health-item"><span>可调度账号</span><b class="health-ready">{{ overview.lastUpdated ? overview.counts.ready : '—' }}<small> / {{ overview.lastUpdated ? overview.counts.total : '—' }}</small></b><span>凭证已配置、未冷却</span></a>
+            <a href="#/accounts" class="health-item"><span>需要关注</span><b :class="{'health-warn':overview.issues.length}">{{ overview.lastUpdated ? overview.issues.length : '—' }}<small> 个账号</small></b><span>凭证、冷却、目录与领取异常</span></a>
+            <a href="#/chat" class="health-item"><span>模型目录</span><b>{{ overview.lastUpdated ? overview.counts.models : '—' }}<small> 个型号</small></b><span>{{ overview.channels.length }} 个已接入渠道 / 地区</span></a>
+            <a href="#/logs" class="health-item"><span>正在处理</span><b>{{ overview.lastUpdated ? overview.counts.inflight : '—' }}<small> 个请求</small></b><span>当前实时调用</span></a>
           </div>
-          <div class="panel overview-issues" v-if="overview.issues.length">
-            <div class="panel-head">需要关注 <span class="badge b-warn">{{ overview.issues.length }} 个账号</span><span class="spacer"></span><a href="#/accounts">查看全部 →</a></div>
-            <div class="panel-body"><a v-for="item in overview.issues.slice(0,4)" :key="item.id" :href="'#/account/'+encodeURIComponent(item.id)" class="overview-issue"><b>{{ item.name }}</b><span>{{ item.detail }}</span><span aria-hidden="true">→</span></a></div>
-          </div>
+
 
           <div class="panel" id="overview-statistics">
             <div class="panel-head"><b>调用统计</b><span class="dim overview-panel-note">按请求发起时间统计 · 成功率仅计算已完成请求</span><span class="spacer"></span><div class="win-switch"><button v-for="w in overview.windowOptions" :key="w.key" class="win-btn" :class="{active:w.key===overview.window}" :disabled="overview.statsLoading || overview.refreshing" @click="overview.setWindow(w.key)">{{ w.label }}</button></div></div>
             <div class="panel-body">
               <div v-if="overview.statsError" class="note error" role="alert">统计更新失败：{{ overview.statsError }}。{{ overview.stats ? '以下保留上次的 '+overview.windowLabel+' 统计。' : '暂无可读统计。' }} <button class="btn link small" :disabled="overview.statsLoading || overview.refreshing" @click="overview.loadStats()">重试</button></div>
               <div class="metric-grid overview-stat-metrics">
-                <div class="metric"><div class="metric-label">总请求</div><div class="metric-value">{{ $fmt.compact(overview.summary.requests) }}</div><div class="metric-sub">{{ overview.stats ? (overview.summary.successes || 0)+' 成功 · '+(overview.summary.failures || 0)+' 失败 · '+(overview.summary.in_flight || 0)+' 进行中' : '统计尚未读取' }}</div></div>
-                <div class="metric"><div class="metric-label">成功率</div><div class="metric-value">{{ overview.completed ? $fmt.pct(overview.summary.success_pct) : '—' }}</div><div class="metric-sub">{{ overview.stats ? overview.completed+' 个已完成请求' : '统计尚未读取' }}</div></div>
-                <div class="metric"><div class="metric-label">平均首字等待</div><div class="metric-value">{{ overview.summary.ttfb_samples ? overview.duration(overview.summary.ttfb_avg_ms) : '—' }}</div><div class="metric-sub">从发送到收到首段回复</div></div>
-                <div class="metric"><div class="metric-label">95% 请求完成耗时</div><div class="metric-value">{{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_p95_ms) : '—' }}</div><div class="metric-sub">平均 {{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_avg_ms) : '—' }}</div></div>
+                <div class="metric"><div class="metric-label">总请求 <span class="metric-period">{{ overview.windowLabel }}</span></div><div class="metric-value">{{ overview.stats ? $fmt.compact(overview.summary.requests) : '—' }}</div><div class="metric-sub">{{ overview.stats ? (overview.summary.successes || 0)+' 成功 · '+(overview.summary.failures || 0)+' 失败 · '+(overview.summary.in_flight || 0)+' 进行中' : '统计尚未读取' }}</div></div>
+                <div class="metric"><div class="metric-label">请求成功率</div><div class="metric-value">{{ overview.successRate===null ? '—' : $fmt.pct(overview.successRate) }}</div><div class="metric-sub">{{ overview.stats ? overview.completed+' 个已完成请求' : '统计尚未读取' }}</div></div>
+                <div class="metric"><div class="metric-label">平均首字等待</div><div class="metric-value">{{ overview.summary.ttfb_samples ? overview.duration(overview.summary.ttfb_avg_ms) : '—' }}</div><div class="metric-sub">发送请求 → 开始回复</div></div>
+                <div class="metric"><div class="metric-label">95% 请求完成耗时 <span class="metric-period">P95</span></div><div class="metric-value">{{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_p95_ms) : '—' }}</div><div class="metric-sub">平均 {{ overview.summary.latency_samples ? overview.duration(overview.summary.latency_avg_ms) : '—' }}</div></div>
               </div>
-              <div id="overview-log-scope" class="note info">{{ overview.retentionNote }}<span v-if="overview.summary.oldest_request_at"> 当前窗口内现有记录：{{ $fmt.timeFull(overview.summary.oldest_request_at) }} 至 {{ $fmt.timeFull(overview.summary.newest_request_at) }}。</span></div>
-              <div id="overview-token-statistics" class="metric-grid overview-stat-metrics overview-token-metrics">
-                <div class="metric"><div class="metric-label">Token 总量</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.total_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.total_tokens) : '—' }}</div><div class="metric-sub">{{ !overview.stats ? '统计尚未读取' : !overview.summary.requests ? '暂无调用记录' : overview.summary.tokens_reported ? '仅累计已上报用量' : '上游用量未上报' }}</div></div>
-                <div class="metric"><div class="metric-label">输入 Token</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.prompt_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.prompt_tokens) : '—' }}</div><div class="metric-sub">问题与对话上下文</div></div>
-                <div class="metric"><div class="metric-label">输出 Token</div><div class="metric-value" :title="overview.summary.tokens_reported ? String(overview.summary.completion_tokens) : '上游尚未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.completion_tokens) : '—' }}</div><div class="metric-sub">模型生成的回复</div></div>
-                <div class="metric"><div class="metric-label">用量上报覆盖率</div><div class="metric-value">{{ overview.summary.requests ? $fmt.pct(overview.tokenCoverage) : '—' }}</div><div class="metric-sub">{{ overview.stats ? (overview.summary.tokens_reported || 0)+' / '+(overview.summary.requests || 0)+' 个请求已上报' : '统计尚未读取' }}</div></div>
+
+              <div class="request-outcomes" v-if="overview.stats && overview.summary.requests">
+                <div class="data-track" role="img" :aria-label="'请求结果：'+overview.requestSegments.map(s=>s.label+' '+s.value+' 次').join('，')"><i v-for="s in overview.requestSegments" :key="s.key" :style="{width:s.share+'%',background:s.color}"></i></div>
+                <div class="outcome-labels"><span v-for="s in overview.requestSegments" :key="s.key"><i :style="{background:s.color}"></i>{{ s.label }} <b>{{ s.value }}</b></span><a href="#/logs">查看记录 →</a></div>
               </div>
+              <div class="activity-layout"><div class="activity-chart">
               <div class="chart-head overview-chart-head"><b>调用趋势</b><span class="dim">{{ overview.windowLabel }} · {{ overview.chartTimezone }}</span><span class="spacer"></span><div class="win-switch"><button class="win-btn" :class="{active:overview.chartMode==='requests'}" @click="overview.selectChartMode('requests')">请求量</button><button class="win-btn" :class="{active:overview.chartMode==='tokens'}" @click="overview.selectChartMode('tokens')">Token</button><button class="win-btn" :class="{active:overview.chartMode==='latency'}" @click="overview.selectChartMode('latency')">响应耗时</button></div></div>
               <div v-if="overview.chartHasData && overview.series.length" id="overview-trend">
                 <div class="overview-chart-caption"><span>纵轴：{{ overview.chartUnit }} · 峰值 {{ $fmt.compact(overview.chart.max) }}</span><span v-for="line in overview.chartLines" :key="line.key" class="chart-legend"><i :style="{background:line.color}"></i>{{ line.label }}</span></div>
-                <svg class="chart overview-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" :aria-label="'调用趋势，单位'+overview.chartUnit">
+                <div class="chart-plot"><div class="chart-scale" aria-hidden="true"><span>{{ $fmt.compact(overview.chart.max || 1) }}</span><span>{{ $fmt.compact((overview.chart.max || 1)/2) }}</span><span>0</span></div>
+                <svg class="chart overview-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="group" :aria-label="'调用趋势，单位'+overview.chartUnit">
                   <path class="chart-gridline" d="M0,6 H100 M0,50 H100 M0,94 H100"></path>
                   <g v-for="line in overview.chart.paths" :key="line.key"><path :class="line.cls" :style="{stroke:line.color}" :d="line.d"></path><circle v-for="sample in line.samples" :key="sample.index" :cx="sample.x" :cy="sample.y" r="0.4" :fill="line.color"></circle></g>
                   <path v-if="overview.chartIndex!==null" class="chart-crosshair" :d="'M'+(overview.chartIndex*overview.chart.step)+',0 V100'"></path>
                   <rect v-for="point in overview.chart.points" :key="point.index" :x="Math.max(0,point.x-overview.chart.step/2)" y="0" :width="overview.chart.step" height="100" fill="transparent" tabindex="0" role="button" :aria-label="point.label+'，查看统计'" @mouseenter="overview.chartIndex=point.index" @focus="overview.chartIndex=point.index" @click="overview.chartIndex=point.index" @keydown.enter="overview.chartIndex=point.index" @keydown.space.prevent="overview.chartIndex=point.index"></rect>
-                </svg>
+                </svg></div>
                 <div class="chart-axis"><span>{{ overview.series[0].label }}</span><span>{{ overview.series[overview.series.length-1].label }}</span></div>
                 <div class="overview-point" aria-live="polite"><span v-if="overview.selectedPoint"><b>{{ overview.selectedPoint.label }}</b> · {{ overview.selectedPoint.successes }} 成功 / {{ overview.selectedPoint.failures }} 失败 / {{ overview.selectedPoint.in_flight || 0 }} 进行中 · Token {{ overview.selectedPoint.tokens_reported ? $fmt.compact(overview.selectedPoint.total_tokens) : '未上报' }} · 平均耗时 {{ overview.selectedPoint.latency_samples ? overview.duration(overview.selectedPoint.avg_latency_ms) : '无样本' }}</span><span v-else class="dim">指向或点选图表，查看该时段的详细数字。</span></div>
               </div>
               <div v-else class="overview-chart-empty">{{ overview.statsLoading && !overview.stats ? '正在加载统计…' : overview.chartEmpty }}</div>
               <p class="hint" v-if="overview.stats">统计截止 {{ $fmt.timeFull(overview.stats.until) }}；Token 只累计上游已上报的用量，不等于余额或费用。</p>
+              </div>
+              <aside id="overview-token-statistics" class="usage-card">
+                <div class="usage-heading"><b>Token 用量</b><span>所选时间范围</span></div>
+                <div class="usage-total" :title="overview.summary.tokens_reported ? String(overview.summary.total_tokens) : '用量未上报'">{{ overview.summary.tokens_reported ? $fmt.compact(overview.summary.total_tokens) : '—' }}<small>总量</small></div>
+                <p class="hint">{{ !overview.stats ? '统计尚未读取' : !overview.summary.requests ? '暂无调用记录' : overview.summary.tokens_reported ? '仅累计上游已上报用量' : '上游用量未上报' }}</p>
+                <div class="data-track token-track" role="img" :aria-label="overview.summary.tokens_reported ? '输入 '+overview.summary.prompt_tokens+'，输出 '+overview.summary.completion_tokens : 'Token 用量未知'"><i v-for="part in overview.tokenParts" :key="part.label" :style="{width:part.share+'%',background:part.color}"></i></div>
+                <div v-for="part in overview.tokenParts" :key="part.label" class="usage-row"><span><i :style="{background:part.color}"></i>{{ part.label }} Token</span><b :title="String(part.value)">{{ overview.summary.tokens_reported ? $fmt.compact(part.value) : '—' }}</b></div>
+                <div class="usage-coverage"><div><span>用量上报覆盖率</span><b>{{ overview.summary.requests ? $fmt.pct(overview.tokenCoverage) : '—' }}</b></div><div class="data-track"><i :style="{width:overview.tokenCoverage+'%'}"></i></div><small>{{ overview.stats ? (overview.summary.tokens_reported || 0)+' / '+(overview.summary.requests || 0)+' 个请求已上报' : '统计尚未读取' }}</small></div>
+                <p class="hint">Token 是模型处理的文本量，不等于账户余额或费用。</p>
+              </aside>
+              </div>
             </div>
           </div>
 
+          <div class="panel overview-issues" v-if="overview.issues.length">
+            <div class="panel-head">需要关注 <span class="badge b-warn">{{ overview.issues.length }} 个账号</span><span class="spacer"></span><a href="#/accounts">查看全部 →</a></div>
+            <div class="panel-body"><a v-for="item in overview.issues.slice(0,4)" :key="item.id" :href="'#/account/'+encodeURIComponent(item.id)" class="overview-issue"><b>{{ item.name }}</b><span>{{ item.detail }}</span><span aria-hidden="true">→</span></a></div>
+          </div>
+          <details class="stats-method"><summary>统计口径与保留范围</summary>              <div id="overview-log-scope" class="note info">{{ overview.retentionNote }}<span v-if="overview.summary.oldest_request_at"> 当前窗口内现有记录：{{ $fmt.timeFull(overview.summary.oldest_request_at) }} 至 {{ $fmt.timeFull(overview.summary.newest_request_at) }}。</span></div></details>
+
+          <div class="overview-insights" v-if="overview.stats">
+            <div><span>最常用模型</span><b class="mono" :title="overview.topModel?.model">{{ overview.topModel?.model || '暂无调用' }}</b><small>{{ overview.topModel ? overview.topModel.requests+' 次请求 · 占 '+$fmt.pct(overview.share(overview.topModel.requests,overview.summary.requests)) : '发起调用后自动汇总' }}</small></div>
+            <a href="#/logs"><span>主要失败原因</span><b>{{ overview.topFailure ? $errKind(overview.topFailure.kind) : '暂无失败记录' }}</b><small>{{ overview.topFailure ? overview.topFailure.count+' 次 · 查看记录排查 →' : '所选时间范围内的记录' }}</small></a>
+          </div>
           <div class="grid cols-2">
             <div class="panel"><div class="panel-head">账号状态分布<span class="spacer"></span><a href="#/accounts">账号池 →</a></div><div v-if="overview.lastUpdated" class="panel-body overview-pool-distribution"><div class="overview-ring" :style="overview.ringStyle" role="img" :aria-label="'账号状态分布，共'+overview.counts.total+'个账号'"><div><b>{{ overview.counts.total }}</b><span>全部账号</span></div></div><div class="overview-state-legend"><div v-for="s in overview.distribution" :key="s.key"><i :style="{background:s.color}"></i><span>{{ s.label }}</span><b>{{ s.value }}</b></div><p class="hint">调度状态不代表全部模型已实测通过。</p></div></div><div v-else class="panel-body dim">账号状态未读取，请刷新重试。</div></div>
             <div class="panel"><div class="panel-head">已接入渠道<span class="spacer"></span><span class="dim">{{ overview.lastUpdated ? overview.channels.length+' 个渠道 / 地区组合' : '账号状态未读取' }}</span></div><div class="panel-body"><div v-if="!overview.channels.length" class="dim">{{ overview.lastUpdated ? '添加账号后显示渠道分布。' : '账号状态未读取，请刷新重试。' }}</div><div v-for="c in overview.channels" :key="c.key" class="overview-channel"><div><b>{{ c.label }}</b><span>{{ c.ready }} 可调度 / {{ c.total }} 个账号</span></div><div class="overview-channel-bar"><i v-for="s in overview.distribution" :key="s.key" :style="{width:overview.share(c[s.key],c.total)+'%',background:s.color}" :title="s.label+' '+c[s.key]"></i></div></div></div></div>

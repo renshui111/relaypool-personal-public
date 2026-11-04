@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile
       args:
-        APP_VERSION: ${RELAYPOOL_VERSION:-personal-huawei-20261104}
+        APP_VERSION: ${RELAYPOOL_VERSION:-personal-ui-20261104}
         APP_COMMIT: ${RELAYPOOL_COMMIT:-unknown}
     image: relaypool:personal
     container_name: relaypool

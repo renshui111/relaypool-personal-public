@@ -1,0 +1,75 @@
+/* 概览：实时状态、窗口统计与用量分层展示。 */
+.overview-page { --data-amber:#b17a3e; --data-green:#397b5e; --data-rose:#b65b48; }
+.overview-page .overview-heading { margin-bottom:20px; }
+.overview-page .page-heading h1 { font-size:27px; letter-spacing:-.6px; }
+.overview-page .overview-status { padding:22px 26px; border-radius:14px; background:linear-gradient(115deg,#f4e5cd,#fff8ec 75%); gap:20px; }
+.overview-page .overview-status h2 { margin:10px 0 7px; font-size:21px; }
+.overview-page .overview-status p { font-size:12px; line-height:1.8; max-width:610px; }
+.overview-page .overview-status.attention { background:linear-gradient(115deg,#f6e6c8,#fff8ec 75%); border-color:#dfc496; }
+.overview-page .overview-status.unknown { background:#f1e9de; border-color:var(--border); }
+.service-pill { display:inline-flex; align-items:center; gap:7px; font-size:11px; color:#397b5e; }
+.service-pill i { width:7px; height:7px; border-radius:50%; background:currentColor; box-shadow:0 0 0 4px #397b5e15; }
+.attention .service-pill { color:#a47325; }.unknown .service-pill { color:var(--text-dim); }
+.overview-page .health-strip { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0; border:1px solid var(--border); border-radius:12px; background:#fffaf3; margin:16px 0 24px; }
+.health-item { display:flex; flex-direction:column; gap:8px; padding:18px 22px; color:var(--text); text-decoration:none; min-width:0; }
+.health-item+.health-item { border-left:1px solid var(--border); }
+.health-item:hover { background:#f3e7d4; color:var(--text); }
+.health-item>span { font-size:12px; color:var(--text-dim); }
+.health-item>span:last-child { font-size:11px; color:var(--text-faint); }
+.health-item>b { font-size:28px; line-height:1.15; font-weight:650; font-variant-numeric:tabular-nums; }
+.health-item b small { font-size:12px; color:var(--text-dim); font-weight:400; }
+.health-ready { color:var(--data-green); }.health-warn { color:var(--warn); }
+.overview-page #overview-statistics { border-radius:14px; overflow:hidden; }
+.overview-page #overview-statistics>.panel-head { padding:18px 22px; background:#f6eddf; border-color:var(--border); flex-wrap:wrap; gap:10px; }
+.overview-page #overview-statistics>.panel-body { padding:22px; }
+.overview-page .overview-panel-note { font-size:11px; }
+.overview-page .overview-stat-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:0 0 18px; }
+.overview-page .overview-stat-metrics .metric { background:#fffaf3; border:1px solid #e3d3be; border-radius:10px; padding:17px; min-width:0; border-top:2px solid #b17a3e; }
+.overview-page .overview-stat-metrics .metric:nth-child(2) { border-top-color:var(--data-green); }
+.overview-page .overview-stat-metrics .metric:nth-child(3) { border-top-color:#97815f; }
+.overview-page .overview-stat-metrics .metric:nth-child(4) { border-top-color:#a47325; }
+.overview-page .metric-label { display:flex; align-items:center; gap:7px; flex-wrap:wrap; color:#79634c; font-size:12px; }
+.metric-period { font-size:10px; font-weight:400; color:var(--text-faint); }
+.overview-page .metric-value { font-size:30px; line-height:1.3; letter-spacing:-.7px; margin:10px 0; color:#463525; font-variant-numeric:tabular-nums; }
+.overview-page .metric-sub { font-size:11px; line-height:1.7; color:var(--text-faint); }
+.data-track { display:flex; height:7px; background:#e9dece; border-radius:9px; overflow:hidden; }
+.data-track i { display:block; height:100%; background:var(--data-amber); }
+.request-outcomes { margin-bottom:24px; }
+.outcome-labels { display:flex; gap:18px; flex-wrap:wrap; align-items:center; font-size:11px; margin-top:10px; color:var(--text-dim); }
+.outcome-labels>span { display:flex; align-items:center; gap:6px; }.outcome-labels a { margin-left:auto; }
+.outcome-labels i,.usage-row i { display:inline-block; width:7px; height:7px; border-radius:50%; }
+.outcome-labels b { color:var(--text); font-variant-numeric:tabular-nums; }
+.activity-layout { display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:24px; }
+.activity-chart { min-width:0; }
+.overview-page .overview-chart-head { margin-top:0; flex-wrap:wrap; gap:8px; }
+.overview-page .overview-chart-head>b { font-size:13px; }.overview-page .overview-chart-head>.dim { font-size:10px; }
+.overview-page .overview-chart-head .win-switch { margin-left:auto; }.overview-page .win-btn { font-size:11px; padding:6px 10px; }
+.overview-page .overview-chart { height:210px; background:#fffaf3; border-color:#e9dece; border-radius:8px; }
+.overview-page .overview-chart path { vector-effect:non-scaling-stroke; }.overview-page .chart-crosshair { stroke:#9c805c; }
+.overview-page .overview-chart-empty { min-height:210px; display:grid; place-items:center; text-align:center; padding:30px; border:1px dashed #d7c3a7; border-radius:10px; background:#fffaf3; color:var(--text-dim); line-height:1.9; }
+.overview-page .overview-chart-caption { color:var(--text-dim); gap:12px; font-size:10px; }
+.overview-page .overview-point { min-height:38px; background:#f5ebdc; border-color:var(--border); color:#765b3e; line-height:1.8; }
+.overview-page .chart-axis { color:var(--text-faint); font-size:10px; }
+.chart-plot { display:grid; grid-template-columns:36px minmax(0,1fr); gap:8px; }
+.chart-scale { position:relative; font-size:10px; color:var(--text-faint); font-variant-numeric:tabular-nums; }
+.chart-scale span { position:absolute; right:0; transform:translateY(-50%); }
+.chart-scale span:nth-child(1) { top:6%; }.chart-scale span:nth-child(2) { top:50%; }.chart-scale span:nth-child(3) { top:94%; }
+.overview-page .chart-axis { margin-left:44px; }
+.overview-page .chart-gridline { stroke:#e6dac8; stroke-width:1; }
+.usage-card { border-left:1px solid var(--border); padding-left:24px; min-width:0; }
+.usage-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; }.usage-heading>span { font-size:10px; color:var(--text-faint); }
+.usage-total { margin:20px 0 6px; font-size:36px; font-weight:650; line-height:1.1; font-variant-numeric:tabular-nums; letter-spacing:-1px; color:var(--data-amber); }.usage-total>small { display:block; font-size:11px; font-weight:400; letter-spacing:0; margin-top:9px; color:var(--text-dim); }
+.token-track { height:9px; margin:18px 0; }.usage-row { display:flex; justify-content:space-between; gap:10px; font-size:12px; margin:13px 0; }.usage-row>span { display:flex; align-items:center; gap:8px; color:var(--text-dim); }.usage-row b { font-variant-numeric:tabular-nums; }
+.usage-coverage { margin:22px 0 14px; padding-top:18px; border-top:1px solid var(--border); }.usage-coverage>div:first-child { display:flex; justify-content:space-between; font-size:11px; margin-bottom:10px; color:var(--text-dim); }.usage-coverage small { display:block; margin-top:8px; color:var(--text-faint); font-size:10px; }
+.overview-page .usage-card .hint { font-size:11px; line-height:1.8; }
+.stats-method { margin:0 0 20px; font-size:11px; color:var(--text-faint); }.stats-method summary { cursor:pointer; width:fit-content; padding:5px 0; }.stats-method .note { margin-top:10px; }
+.overview-page .overview-issues { border-color:#ddc296; margin-top:18px; }.overview-page .overview-issues .panel-head { color:#805d2a; background:#f6e9d2; }.overview-page .overview-issue { color:var(--text); }.overview-page .overview-issue:hover { background:#f6eddf; }
+.overview-insights { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }.overview-insights>div,.overview-insights>a { display:flex; flex-direction:column; min-width:0; padding:16px 20px; border:1px solid var(--border); border-radius:10px; background:#fff9ef; text-decoration:none; color:var(--text); gap:8px; }.overview-insights span,.overview-insights small { color:var(--text-dim); font-size:11px; }.overview-insights b { font-size:14px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }.overview-insights>a:hover { border-color:#b28e5c; }
+.overview-page .overview-ring>div { background:var(--panel); }.overview-page .overview-settings>a { background:var(--panel); border-color:var(--border); }.overview-page .overview-settings b { color:var(--text); }
+.overview-page .overview-channel-bar,.overview-page .prov-bar,.overview-page .model-bar,.overview-page .err-bar { background:#ede2d1; }.overview-page .prov-bar-fill,.overview-page .model-bar-fill { background:var(--data-amber); }.overview-page .err-bar-fill { background:var(--data-rose); }
+.overview-page .overview-recent { color:var(--text); }.overview-page .overview-recent:hover { background:#f6ead9; }.overview-page .model-rank { color:#896236; background:#f1e1c9; }
+.overview-page a:focus-visible,.overview-page button:focus-visible,.stats-method summary:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+@media(min-width:1251px) { .overview-page .overview-status { flex-direction:row; align-items:center; } }
+@media(max-width:1200px) { .activity-layout { grid-template-columns:minmax(0,1fr); }.usage-card { border-left:0; border-top:1px solid var(--border); padding:20px 0 0; display:grid; grid-template-columns:1fr 1fr; column-gap:24px; }.usage-heading,.usage-card>.hint:last-child { grid-column:1/-1; }.usage-total { grid-column:1; }.usage-card>.hint { grid-column:1; }.token-track { grid-column:2; grid-row:2; align-self:center; }.usage-row { grid-column:2; }.usage-coverage { grid-column:1; grid-row:4/7; margin:10px 0; } }
+@media(max-width:900px) { .overview-page .overview-stat-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }.overview-page .health-strip { grid-template-columns:repeat(2,minmax(0,1fr)); }.health-item:nth-child(3) { border-left:0; }.health-item:nth-child(n+3) { border-top:1px solid var(--border); }.health-item { padding:16px; } }
+@media(max-width:600px) { .overview-page #overview-statistics>.panel-body { padding:14px; }.overview-page #overview-statistics>.panel-head { padding:14px; }.overview-page .overview-stat-metrics { gap:9px; }.overview-page .overview-stat-metrics .metric { padding:12px; }.overview-page .metric-value { font-size:25px; }.overview-page .overview-panel-note { display:none; }.overview-page .overview-status { padding:18px; }.overview-page .overview-status h2 { font-size:19px; }.overview-page .overview-chart-head .win-switch { width:100%; margin:4px 0; }.overview-page .overview-chart-head .win-btn { flex:1; }.overview-insights { grid-template-columns:1fr; gap:10px; }.outcome-labels { gap:12px; }.outcome-labels a { width:100%; margin:0; }.usage-card { display:block; }.health-item>b { font-size:25px; }.overview-page .overview-chart { height:180px; }.overview-page .overview-chart-empty { min-height:180px; }.overview-page .overview-refresh { font-size:11px; } }

@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   const number = value => Number.isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
-  const states = [{key:"ready",label:"可调度",color:"#16876a"},{key:"cooldown",label:"冷却中",color:"#bb821d"},{key:"offline",label:"需要配置",color:"#d45b62"},{key:"disabled",label:"已停用",color:"#a9b3c5"}];
+  const states = [{key:"ready",label:"可调度",color:"#397b5e"},{key:"cooldown",label:"冷却中",color:"#a47325"},{key:"offline",label:"需要配置",color:"#b65b48"},{key:"disabled",label:"已停用",color:"#aa9a85"}];
   function accountState(a) {
     if(!a.enabled)return "disabled";
     if(!a.has_credential)return "offline";
@@ -41,6 +41,13 @@
       duration(value){if(value===null || value===undefined || value==="" || !Number.isFinite(Number(value)) || Number(value)<0)return "—";return Number(value)===0 ? "0 ms" : window.RPFMT.latency(Number(value));},
       setAutoRefresh(enabled){this.autoRefresh=!!enabled;try{window.localStorage.setItem(refreshPreference,String(this.autoRefresh));}catch{}},
       get completed(){return number(this.summary.successes)+number(this.summary.failures);},
+      get successRate(){return this.completed ? number(this.summary.successes)/this.completed*100 : null;},
+      get requestSegments(){return [{key:'successes',label:'成功',color:'#397b5e'},{key:'failures',label:'失败',color:'#b65b48'},{key:'in_flight',label:'进行中',color:'#a47325'}].map(s=>({...s,value:number(this.summary[s.key]),share:this.share(this.summary[s.key],this.summary.requests)}));},
+      get tokenParts(){const input=number(this.summary.prompt_tokens),output=number(this.summary.completion_tokens);return [{label:'输入',value:input,color:'#b17a3e',share:this.share(input,input+output)},{label:'输出',value:output,color:'#397b5e',share:this.share(output,input+output)}];},
+      get serviceTone(){if(this.error || !this.ready?.ok || !this.lastUpdated)return 'unknown';return !this.counts.ready || this.issues.length ? 'attention' : 'healthy';},
+      get serviceBadge(){return {unknown:'状态待确认',attention:'需要关注',healthy:'可以开始使用'}[this.serviceTone];},
+      get topFailure(){return [...(this.stats?.errors || [])].sort((a,b)=>number(b.count)-number(a.count))[0] || null;},
+      get topModel(){return [...(this.stats?.models || [])].sort((a,b)=>number(b.requests)-number(a.requests))[0] || null;},
       get tokenCoverage(){return this.summary.requests ? Math.min(100,number(this.summary.tokens_reported)/number(this.summary.requests)*100) : 0;},
       get windowLabel(){return this.stats?.window_label || this.window;},
       get windowOptions(){return this.stats?.windows || [{key:"1h",label:"1 小时"},{key:"24h",label:"24 小时"},{key:"7d",label:"7 天"},{key:"30d",label:"30 天"}];},
@@ -49,9 +56,9 @@
       get chartHasData(){return this.chartMode==="tokens" ? number(this.summary.tokens_reported)>0 : this.chartMode==="latency" ? number(this.summary.latency_samples)>0 : number(this.summary.requests)>0;},
       get chartEmpty(){if(!this.stats)return "统计暂不可用，请刷新或重试。";return this.chartMode==="tokens" && number(this.summary.requests)>0 ? "上游未返回用量，暂无 Token 趋势。" : this.chartMode==="latency" && number(this.summary.requests)>0 ? "尚无完成请求的延迟样本。" : "所选时间范围内没有调用记录，开始聊天后这里会显示趋势。";},
       get chartLines(){
-        if(this.chartMode==="tokens")return [{key:"total_tokens",label:"总量",cls:"line-tok",color:"#4f6bed",valid:"tokens_reported"},{key:"prompt_tokens",label:"输入",cls:"line-ok",color:"#16876a",valid:"tokens_reported"},{key:"completion_tokens",label:"输出",cls:"line-err",color:"#2992b3",valid:"tokens_reported"}];
-        if(this.chartMode==="latency")return [{key:"avg_latency_ms",label:"平均响应耗时",cls:"line-tok",color:"#4f6bed",valid:"latency_samples"}];
-        return [{key:"successes",label:"成功",cls:"line-ok",color:"#16876a"},{key:"failures",label:"失败",cls:"line-err",color:"#d45b62"},{key:"in_flight",label:"进行中",cls:"line-pending",color:"#bb821d"}];
+        if(this.chartMode==="tokens")return [{key:"total_tokens",label:"总量",cls:"line-tok",color:"#b17a3e",valid:"tokens_reported"},{key:"prompt_tokens",label:"输入",cls:"line-ok",color:"#397b5e",valid:"tokens_reported"},{key:"completion_tokens",label:"输出",cls:"line-err",color:"#97815f",valid:"tokens_reported"}];
+        if(this.chartMode==="latency")return [{key:"avg_latency_ms",label:"平均响应耗时",cls:"line-tok",color:"#b17a3e",valid:"latency_samples"}];
+        return [{key:"successes",label:"成功",cls:"line-ok",color:"#397b5e"},{key:"failures",label:"失败",cls:"line-err",color:"#b65b48"},{key:"in_flight",label:"进行中",cls:"line-pending",color:"#a47325"}];
       },
       get chart(){
         const points=this.series,lines=this.chartLines;let max=0;
@@ -65,7 +72,7 @@
       get chartTimezone(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch{return "浏览器本地时间";}},
       selectChartMode(mode){this.chartMode=mode;this.chartIndex=null;},
       get distribution(){return states.map(s=>({...s,value:this.counts[s.key]}));},
-      get ringStyle(){let pos=0;const total=this.counts.total;const stops=this.distribution.map(s=>{const begin=pos;pos+=total?s.value/total*100:0;return s.color+" "+begin+"% "+pos+"%";});return {background:total?"conic-gradient("+stops.join(",")+")":"#e9edf5"};},
+      get ringStyle(){let pos=0;const total=this.counts.total;const stops=this.distribution.map(s=>{const begin=pos;pos+=total?s.value/total*100:0;return s.color+" "+begin+"% "+pos+"%";});return {background:total?"conic-gradient("+stops.join(",")+")":"#ede2d1"};},
       get channels(){
         const groups=new Map();for(const a of this.accounts){const key=a.provider+"/"+a.region;if(!groups.has(key))groups.set(key,{key,label:this.providerLabel(a.provider)+(a.region==="cn"?" · 国内":a.region==="global"?" · 国际":""),total:0,ready:0,cooldown:0,offline:0,disabled:0});const row=groups.get(key);row.total++;row[accountState(a)]++;}
         return [...groups.values()].sort((a,b)=>b.total-a.total || a.label.localeCompare(b.label));
@@ -84,7 +91,7 @@
         }
         return out.sort((a,b)=>a.priority-b.priority);
       },
-      get serviceTitle(){if(this.error)return "账号状态更新失败";if(!this.ready?.ok)return "服务状态暂不可确认";if(!this.counts.total)return "先添加一个账号，开始使用";if(!this.counts.ready)return "目前没有可调度账号";return "号池已准备好，可开始聊天";},
+      get serviceTitle(){if(this.error)return "账号状态更新失败";if(!this.ready?.ok)return "服务状态暂不可确认";if(!this.counts.total)return "先添加一个账号，开始使用";if(!this.counts.ready)return "目前没有可调度账号";if(this.issues.length)return this.counts.ready+" 个账号可调度，"+this.issues.length+" 个需要关注";return "号池已准备好，可开始聊天";},
       get serviceNote(){if(this.error)return "下方可能是上次成功读取的数据，点击刷新重试。";if(!this.ready?.ok)return "其他模块仍可查看，请刷新核对后台状态。";return "可调度表示凭证已配置且未冷却，具体模型权限可在聊天台测试。";},
       get armorLabel(){return this.keyArmor===null ? "状态未知" : this.keyArmor.enabled ? "已开启" : "已关闭";},
       get scheduleLabel(){if(!this.schedule)return "计划未读取";if(!this.schedule.enabled)return "后台已关闭";return (this.schedule.hours||[]).map(h=>String(h).padStart(2,"0")+":00").join("、") || "未配置执行时间";},
