@@ -1,0 +1,24 @@
+// Submit errors and continuation instructions must survive background polling.
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+import assert from 'node:assert/strict';
+const source=readFileSync(new URL('../web/src/app.js',import.meta.url),'utf8');
+const start=source.indexOf('      login: {');
+const end=source.indexOf('      async openLogin()',start);
+const completeStart=source.indexOf('      async completeLogin()',end);
+const completeEnd=source.indexOf('      async startLogin()',completeStart);
+assert(start>0 && end>start && completeEnd>completeStart);
+let status={status:'pending'};
+const api={loginStatus:async()=>status,cancelLogin:async()=>{},completeLogin:async()=>{throw Error('回调状态不匹配');}};
+const context={RP:api,URL,Date,clearInterval,setInterval,toast:()=>{},app:{accounts:{reload:async()=>{}}}};
+const vm=runInNewContext('({'+source.slice(start,end)+source.slice(completeStart,completeEnd)+'})',context);
+const login=vm.login;login.loginId='fixture';login._deadline=Date.now()+60000;login.callbackInput='synthetic-callback';
+await vm.completeLogin();assert.equal(login.callbackError,'回调状态不匹配');
+await login.poll();assert.equal(login.callbackError,'回调状态不匹配');
+assert.equal(login.callbackInput,'synthetic-callback');
+api.completeLogin=async()=>({continue_url:'https://auth.huaweicloud.com/example'});
+await vm.completeLogin();assert.equal(login.callbackError,'');assert.ok(login.nextStep.includes('第一步已接收'));
+await login.poll();assert.ok(login.nextStep.includes('第一步已接收'));
+status={status:'done'};await login.poll();assert.equal(login.nextStep,'');assert.equal(login.callbackError,'');assert.equal(login.step,'done');
+login.callbackError='old';login.nextStep='old';login.close();assert.equal(login.callbackError,'');assert.equal(login.nextStep,'');
+console.log('Login regression passed: submit failure, polling, continuation, completion and cleanup.');

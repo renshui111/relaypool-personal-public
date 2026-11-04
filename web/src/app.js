@@ -677,7 +677,7 @@
       selectLoginProvider() {const p=this.providers.find(p=>p.id===this.login.form.provider);this.login.form.region=p?.default_region || "global";this.login.form.client_id="";this.login.form.client_secret="";this.login.form.project_id="";this.login.form.redirect_uri="";},
       login: {
         open:false,step:"form",starting:false,authUrl:"",loginId:"",error:"",done:false,secondsLeft:0,
-        mode:"device",userCode:"",callbackURI:"",callbackInput:"",completing:false,
+        mode:"device",userCode:"",callbackURI:"",callbackInput:"",completing:false,callbackError:"",nextStep:"",
         form:{provider:"workbuddy",region:"cn",name:"",models:"",client_id:"",client_secret:"",project_id:"",redirect_uri:""},
         _timer:null,_deadline:0,_interval:3000,_polling:false,_epoch:0,
         openPanel() {
@@ -686,7 +686,7 @@
         },
         close() {
           this._epoch++;this.stopPolling();if(this.loginId&&!this.done)RP.cancelLogin(this.loginId).catch(()=>{});
-          this.open=false;this.loginId="";this.form.client_secret="";this.callbackInput="";this.starting=false;this._polling=false;
+          this.open=false;this.loginId="";this.form.client_secret="";this.callbackInput="";this.callbackError="";this.nextStep="";this.starting=false;this._polling=false;
         },
         stopPolling(){if(this._timer){clearInterval(this._timer);this._timer=null;}},
         startPolling(){this.stopPolling();this._timer=setInterval(()=>this.poll(),this._interval);this.poll();},
@@ -697,7 +697,7 @@
           this._polling=true;
           try {
             const r=await RP.loginStatus(id);if(this._epoch!==epoch||this.loginId!==id)return;
-            if(r.status==="done"){this.stopPolling();this.done=true;this.step="done";this.callbackInput="";toast("账号已添加并保存登录态");await app.accounts.reload();return;}
+            if(r.status==="done"){this.stopPolling();this.done=true;this.step="done";this.callbackInput="";this.callbackError="";this.nextStep="";toast("账号已添加并保存登录态");await app.accounts.reload();return;}
             if(r.status==="expired"||r.status==="failed"){this.stopPolling();this.error=r.message || "授权已失效，请重新开始";return;}
             this.error=r.last_error || "";
           }catch(e){if(this._epoch!==epoch||this.loginId!==id)return;if(e.status===404)this.stopPolling();this.error=e.message || "等待授权失败";}
@@ -707,9 +707,9 @@
       async openLogin(){if(!this.providers.length)await this.reload();this.login.openPanel();},
       closeLogin(){this.login.close();},
       async completeLogin() {
-        const L=this.login,id=L.loginId,epoch=L._epoch;if(L.completing||!L.callbackInput.trim())return;L.completing=true;L.error="";
-        try{const result=await RP.completeLogin(id,L.callbackInput.trim());if(L._epoch!==epoch)return;L.callbackInput="";if(result.continue_url){const target=new URL(result.continue_url);if(target.protocol!=="https:"||!['auth.huaweicloud.com','codearts.huaweicloud.com'].includes(target.hostname)||target.username||target.password)throw new Error('后续登录地址无效');L.authUrl=target.href;L.error='请点击授权链接继续登录，再粘贴最终带 code 的完整回调地址';return;}await L.poll();}
-        catch(e){if(L._epoch===epoch)L.error=e.message;}finally{if(L._epoch===epoch)L.completing=false;}
+        const L=this.login,id=L.loginId,epoch=L._epoch;if(L.completing||!L.callbackInput.trim())return;L.completing=true;L.callbackError="";
+        try{const result=await RP.completeLogin(id,L.callbackInput.trim());if(L._epoch!==epoch)return;L.callbackInput="";if(result.continue_url){const target=new URL(result.continue_url);if(target.protocol!=="https:"||!['auth.huaweicloud.com','codearts.huaweicloud.com'].includes(target.hostname)||target.username||target.password)throw new Error('后续登录地址无效');L.authUrl=target.href;L.nextStep='第一步已接收。请点击上方授权链接继续登录，再粘贴最终带 code 的完整回调地址。';return;}L.nextStep="";await L.poll();}
+        catch(e){if(L._epoch===epoch)L.callbackError=e.message || '授权提交失败，请检查回调地址后重试';}finally{if(L._epoch===epoch)L.completing=false;}
       },
       async startLogin() {
         const L=this.login,epoch=L._epoch;if(L.starting)return;L.starting=true;L.error="";

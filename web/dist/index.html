@@ -307,6 +307,8 @@
                   </div>
                   <input id="login-callback" type="password" autocomplete="off" v-model="accounts.login.callbackInput" :placeholder="accounts.login.form.provider==='claude' ? '粘贴完整授权码 code#state 或回调地址' : '粘贴本次登录返回的完整地址'">
                   <button class="btn small" :disabled="accounts.login.completing || !accounts.login.callbackInput.trim()" @click="accounts.completeLogin()">接收授权并保存</button>
+                  <div v-if="accounts.login.callbackError" class="note error" role="alert">{{ accounts.login.callbackError }}。请粘贴授权跳转后的完整回调地址，不是上方的授权链接。</div>
+                  <div v-if="accounts.login.nextStep" class="note info" role="status">{{ accounts.login.nextStep }}</div>
                 </div>
                 <div class="dim" style="margin:10px 0">
                   状态：{{ accounts.login.done ? '✓ 已完成' : '等待授权…' }}
