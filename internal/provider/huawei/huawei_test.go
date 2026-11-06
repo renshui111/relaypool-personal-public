@@ -216,6 +216,7 @@ func TestDPoPAndOAuth(t *testing.T) {
 		t.Run(family, func(t *testing.T) {
 			var exchanges atomic.Int32
 			var client *Client
+			var expectedVerifier string
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				switch r.URL.Path {
@@ -231,6 +232,9 @@ func TestDPoPAndOAuth(t *testing.T) {
 					r.ParseForm()
 					if r.PostForm.Get("client_id") != client.clientID() {
 						t.Error("mixed OAuth client identities")
+					}
+					if expectedVerifier == "" || r.PostForm.Get("code_verifier") != expectedVerifier {
+						t.Error("authorization code lost its session PKCE binding")
 					}
 					verifyProof(t, r.Header.Get("DPoP"), client.token)
 					io.WriteString(w, `{"credentials":{"access_key_id":"refreshed-ak","secret_access_key":"refreshed-sk","security_token":"refreshed-sts","expiration":"2099-01-01T00:00:00Z"},"refresh_token":"rotated-refresh"}`)
@@ -255,6 +259,7 @@ func TestDPoPAndOAuth(t *testing.T) {
 			if strings.Contains(s.AuthURL, s.MachineID) {
 				t.Fatal("private JWK put in public authorization URL")
 			}
+			expectedVerifier = s.Verifier
 			var raw []byte
 			if family == OfficeAce {
 				login, _ := url.Parse(s.AuthURL)
@@ -268,13 +273,31 @@ func TestDPoPAndOAuth(t *testing.T) {
 					t.Fatal("OfficeAce polling not completed")
 				}
 			} else {
-				if _, err := client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1/oauth/callback?secret=x&redirect=https%3A%2F%2Fevil.example"); err == nil {
+				authorize, _ := url.Parse(s.AuthURL)
+				if authorize.Query().Get("state") != "" || len(authorize.Query().Get("ticket_id")) != 64 {
+					t.Fatal("CodeArts ticket is not an OAuth state parameter")
+				}
+				for _, callback := range []string{
+					"http://127.0.0.1:12801/oauth/callback?secret=x&redirect=https%3A%2F%2Fauth.huaweicloud.com",
+					"http://user@127.0.0.1:12800/oauth/callback?code=x",
+					"http://127.0.0.1:12800/oauth/callback?code=x&code=y",
+					"http://127.0.0.1:12800/oauth/callback?code=x&ticket_id=other-session",
+					"http://127.0.0.1:12800/oauth/callback?code=%ZZ",
+				} {
+					if _, err := client.CompleteBrowserLogin(t.Context(), s, callback); err == nil {
+						t.Fatal("invalid callback accepted")
+					}
+				}
+				if exchanges.Load() != 0 {
+					t.Fatal("invalid callback reached token exchange")
+				}
+				if _, err := client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1:12800/oauth/callback?secret=x&redirect=https%3A%2F%2Fevil.example"); err == nil {
 					t.Fatal("arbitrary login redirect accepted")
 				}
-				if _, err := client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1/oauth/callback?secret=x&redirect=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html"); err != nil {
+				if _, err := client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1:12800/oauth/callback?state=huawei-portal-state&secret=x&redirect=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html"); err != nil {
 					t.Fatal(err)
 				}
-				raw, err = client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1:12800/oauth/callback?code=one-use-code")
+				raw, err = client.CompleteBrowserLogin(t.Context(), s, "http://127.0.0.1:12800/oauth/callback?code=one-use-code&state=huawei-issued-state")
 			}
 			if err != nil {
 				t.Fatal(err)

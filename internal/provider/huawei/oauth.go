@@ -99,7 +99,7 @@ func (c *Client) BeginBrowserLogin(ctx context.Context, o provider.BrowserLoginO
 	if err != nil {
 		return nil, err
 	}
-	state, err := randomText(16)
+	state, err := randomText(32)
 	if err != nil {
 		return nil, err
 	}
@@ -311,12 +311,24 @@ func (c *Client) CompleteBrowserLogin(ctx context.Context, s *provider.BrowserLo
 		return c.finishLogin(ctx, s)
 	}
 	u, err := url.Parse(strings.TrimSpace(callback))
-	if err != nil || u.Scheme != "http" || u.Hostname() != "127.0.0.1" || u.Path != "/oauth/callback" {
+	if err != nil || u.Scheme != "http" || u.Host != "127.0.0.1:12800" || u.User != nil || u.Path != "/oauth/callback" || u.Fragment != "" {
 		return nil, fmt.Errorf("请粘贴本次码道登录的完整本机回调地址")
 	}
-	q := u.Query()
-	if state := q.Get("state"); state != "" && state != s.State {
-		return nil, fmt.Errorf("码道回调状态不匹配")
+	q, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("码道回调参数格式无效")
+	}
+	// CodeArts receives our nonce as ticket_id, not OAuth state. The portal's
+	// state is owned by Huawei and must not be compared with that ticket.
+	// Like the official authentication extension, bind the authorization code
+	// through this authenticated login session's PKCE verifier at token exchange.
+	for _, key := range []string{"code", "secret", "redirect", "ticket_id"} {
+		if len(q[key]) > 1 {
+			return nil, fmt.Errorf("码道回调包含重复参数，请重新复制完整地址")
+		}
+	}
+	if ticket := q.Get("ticket_id"); ticket != "" && ticket != s.State {
+		return nil, fmt.Errorf("码道回调不属于本次登录，请使用当前授权链接重新登录")
 	}
 	if q.Get("code") == "" && q.Get("secret") != "" && q.Get("redirect") != "" {
 		target, err := url.Parse(q.Get("redirect"))

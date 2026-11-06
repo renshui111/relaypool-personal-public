@@ -85,13 +85,13 @@ func TestCodeArtsBrowserLoginLifecycleWithoutExternalRequests(t *testing.T) {
 	if pending.Code != 200 || !strings.Contains(pending.Body.String(), `"pending"`) {
 		t.Fatal("expected local pending flow")
 	}
-	complete := callComplete(t, s, "POST", "/admin/accounts/login/"+id+"/complete", `{"callback_url":"http://127.0.0.1/oauth/callback?secret=x&redirect=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html"}`)
+	complete := callComplete(t, s, "POST", "/admin/accounts/login/"+id+"/complete", `{"callback_url":"http://127.0.0.1:12800/oauth/callback?secret=x&redirect=https%3A%2F%2Fauth.huaweicloud.com%2Fauthui%2Flogin.html"}`)
 	if complete.Code != 200 || !strings.Contains(complete.Body.String(), `"continue_url"`) {
 		t.Fatal("portal continuation unavailable")
 	}
-	invalid := callComplete(t, s, "POST", "/admin/accounts/login/"+id+"/complete", `{"callback_url":"http://127.0.0.1:12800/oauth/callback?code=x&state=wrong"}`)
+	invalid := callComplete(t, s, "POST", "/admin/accounts/login/"+id+"/complete", `{"callback_url":"http://127.0.0.1:12800/oauth/callback?code=x&ticket_id=wrong"}`)
 	if invalid.Code != 400 {
-		t.Fatal("callback state mismatch accepted")
+		t.Fatal("callback ticket mismatch accepted")
 	}
 	cancelled := callComplete(t, s, "POST", "/admin/accounts/login/"+id+"/cancel", `{}`)
 	if cancelled.Code != 204 {
