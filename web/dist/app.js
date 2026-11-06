@@ -1369,9 +1369,9 @@
   // 塞进第二个对象，是因为 createApp 只接受一个根 scope。
   app.$fmt = fmt;
   app.$esc = esc;
-  app.$version = "personal-loginfix-20261104";
-  app.$buildVersion = "personal-loginfix-20261104";
-  app.$buildAt = "2026-11-04T11:55:09Z";
+  app.$version = "personal-huawei-credits-20261106";
+  app.$buildVersion = "personal-huawei-credits-20261106";
+  app.$buildAt = "2026-11-06T10:39:18Z";
   app.$base = "http://127.0.0.1:8787";
   app.$armorGroups = function (armorInfo) {
     if (!armorInfo || !armorInfo.data) return [];
