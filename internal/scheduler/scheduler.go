@@ -412,7 +412,13 @@ func (s *Scheduler) Checkin(ctx context.Context, account AccountRef, manual bool
 		return provider.CheckinResult{}, err
 	}
 
-	result, err := adapter.Checkin(ctx, cred)
+	var result provider.CheckinResult
+	if policy, ok := adapter.(provider.CheckinRefreshPolicy); ok && policy.NeedsCheckinRefresh(cred) {
+		cred, err = s.refreshForCheckin(ctx, account.ID, adapter, cred)
+	}
+	if err == nil {
+		result, err = adapter.Checkin(ctx, cred)
+	}
 	if err != nil {
 		if errorsIs(err, provider.ErrUnsupported) {
 			// A channel without a check-in must not be retried every day.
@@ -430,6 +436,30 @@ func (s *Scheduler) Checkin(ctx context.Context, account AccountRef, manual bool
 		log.Printf("scheduler: check-in succeeded for %s", account.ID)
 	}
 	return result, nil
+}
+
+func (s *Scheduler) refreshForCheckin(ctx context.Context, accountID string, adapter provider.Provider, cred provider.Credential) (provider.Credential, error) {
+	saver, ok := s.accounts.(CredentialSaver)
+	if !ok {
+		return provider.Credential{}, fmt.Errorf("无法持久保存签到登录态，未进行续期")
+	}
+	updated, err := adapter.Refresh(ctx, cred)
+	if err != nil {
+		return provider.Credential{}, err
+	}
+	if err := saver.SaveRefreshedCredential(ctx, accountID, updated); err != nil {
+		return provider.Credential{}, err
+	}
+	// A concurrent explicit credential edit wins the store CAS. Reload what is
+	// actually persisted instead of claiming with an obsolete refresh result.
+	latest, err := s.creds.CredentialFor(accountID)
+	if err != nil {
+		return provider.Credential{}, err
+	}
+	if latest.Provider != cred.Provider {
+		return provider.Credential{}, fmt.Errorf("账号渠道已变化，请重新领取")
+	}
+	return latest, nil
 }
 
 // runKeepalive refreshes tokens so the account stays warm.

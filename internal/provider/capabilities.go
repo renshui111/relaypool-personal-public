@@ -15,6 +15,12 @@ type CheckinCapability struct {
 	DayStartHour int    `json:"day_start_hour"`
 }
 
+// CheckinRefreshPolicy separates reward/control credentials from model credentials.
+// The scheduler must persist a rotated credential before submitting a claim.
+type CheckinRefreshPolicy interface {
+	NeedsCheckinRefresh(Credential) bool
+}
+
 func CheckinFor(family, region string) CheckinCapability {
 	c := CheckinCapability{Mode: "none", Label: "无需签到", Note: "此渠道没有已接入的签到接口"}
 	switch family {

@@ -353,6 +353,15 @@ func (c *Client) CompleteBrowserLogin(ctx context.Context, s *provider.BrowserLo
 func (c *Client) NeedsRefresh(cred provider.Credential) bool {
 	return c.family == CodeArts && !cred.ExpiresAt.IsZero() && time.Until(cred.ExpiresAt) < time.Minute && cred.Field("refresh_token") != "" && cred.Field("dpop_private_jwk") != ""
 }
+
+func (c *Client) NeedsCheckinRefresh(cred provider.Credential) bool {
+	if c.family == CodeArts {
+		return c.NeedsRefresh(cred)
+	}
+	expires, err := time.Parse(time.RFC3339, cred.Field("sts_expires_at"))
+	return err == nil && !expires.IsZero() && time.Until(expires) < time.Minute && cred.Field("refresh_token") != "" && cred.Field("dpop_private_jwk") != ""
+}
+
 func (c *Client) Refresh(ctx context.Context, cred provider.Credential) (provider.Credential, error) {
 	needsRefresh := c.NeedsRefresh(cred)
 	if c.family == OfficeAce {
