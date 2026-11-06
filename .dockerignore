@@ -8,3 +8,4 @@ bin
 backups
 config.json
 config.local.json
+prompts/.removed

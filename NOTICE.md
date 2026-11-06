@@ -7,6 +7,7 @@
 - 华为码道与果办协议研究的项目来源、固定提交和修改说明见 `internal/provider/huawei/NOTICE.md`；Apache-2.0 与 MIT 参考许可全文见 `licenses/huawei/`，不由根目录 MIT 重新授权。
 - Go 运行时与 Go 模块的许可由发行构建工具从实际使用的工具链和模块缓存收集到发行包的 `licenses/go/`；模块版本与文件指纹同时保存。没有这些文件的二进制包不能作为完整发行包。
 - `prompts/`、`internal/armor/assets/library.json` 及相关研究资料包含第三方来源内容，其来源声明不等于每段文本均已获得独立的再分发授权。根目录 MIT 不覆盖独立第三方内容；使用、修改或再分发这些资料时应核对对应来源及许可。
+- 2026-11-07 运行提示库使用固定提交的冷咖啡与 Ai-jailbreak 文本改编，按各自 MIT 许可保留版权、许可全文及 Ai-jailbreak 的 ATTRIBUTION，见 `licenses/prompts/`。提取、删除广告及接口适配的具体范围见 `docs/PROMPT-CURATION.md`。
 - DSH 宿主补丁、冷咖啡桌面安装器、闭源功能和独立 Python 评测框架未作为本项目的内置运行时代码发行。
 
 本机自用版从原项目独立拆分；公开仓库不包含运行数据库、账号凭证或私有配置。版本范围和使用入口见 [README.md](README.md)，这不改变第三方内容的原有许可要求。

@@ -23,7 +23,7 @@ func callComplete(t *testing.T, s *Server, method, path, body string) *httptest.
 func TestCompletePresetImportBindingAndRestart(t *testing.T) {
 	s := newTestServerNoAdapter(t)
 	files := armor.BundledResearchFiles("gpt-instruct")
-	if len(files) == 0 && armor.DistributionProfile == "public" {
+	if len(files) == 0 {
 		for _, name := range []string{"fixture-a.md", "fixture-b.md", "fixture-c.md"} {
 			files = append(files, armor.ResearchFile{SourceID: "gpt-instruct", Path: name, Body: "测试完整正文", SHA256: armor.TextSHA256("测试完整正文")})
 		}

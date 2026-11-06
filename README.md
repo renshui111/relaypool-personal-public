@@ -69,6 +69,7 @@ docker exec relaypool /app/relaypool -show-api-key
 | --- | --- |
 | [Docker 部署](docs/DEPLOYMENT.md) | 环境、安装、端口、出站代理、日常启动停止 |
 | [使用说明](docs/USAGE.md) | 平台接入、账号池、密钥、聊天、预设和日志 |
+| [提示词精选与验证](docs/PROMPT-CURATION.md) | 当前11份预设、来源固定提交、筛除原因、实测范围和回退 |
 | [API 文档](docs/API.md) | 鉴权、模型查询、三种协议、流式调用、错误与管理接口 |
 | [配置参考](docs/CONFIGURATION.md) | 环境变量、JSON 配置、默认值及 Compose 覆盖 |
 | [华为果办与码道](docs/HUAWEI.md) | 两个产品作为上游接入、浏览器授权、凭证区别和验证边界 |
