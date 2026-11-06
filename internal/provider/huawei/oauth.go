@@ -354,7 +354,12 @@ func (c *Client) NeedsRefresh(cred provider.Credential) bool {
 	return c.family == CodeArts && !cred.ExpiresAt.IsZero() && time.Until(cred.ExpiresAt) < time.Minute && cred.Field("refresh_token") != "" && cred.Field("dpop_private_jwk") != ""
 }
 func (c *Client) Refresh(ctx context.Context, cred provider.Credential) (provider.Credential, error) {
-	if !c.NeedsRefresh(cred) {
+	needsRefresh := c.NeedsRefresh(cred)
+	if c.family == OfficeAce {
+		expires, err := time.Parse(time.RFC3339, cred.Field("sts_expires_at"))
+		needsRefresh = err == nil && !expires.IsZero() && time.Until(expires) < 6*time.Hour && cred.Field("refresh_token") != "" && cred.Field("dpop_private_jwk") != ""
+	}
+	if !needsRefresh {
 		return cred, nil
 	}
 	// Serialize rotated one-use refresh tokens and reuse the result for concurrent

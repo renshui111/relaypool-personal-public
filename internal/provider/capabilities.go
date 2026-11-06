@@ -18,6 +18,8 @@ type CheckinCapability struct {
 func CheckinFor(family, region string) CheckinCapability {
 	c := CheckinCapability{Mode: "none", Label: "无需签到", Note: "此渠道没有已接入的签到接口"}
 	switch family {
+	case "codearts", "officeace":
+		c = CheckinCapability{Supported: true, Mode: "daily", Label: "领取每日积分", Note: "领取后复核上游奖励；额度与资格以上游为准，需要完整浏览器授权", Timezone: "UTC+8"}
 	case "workbuddy":
 		c = CheckinCapability{Supported: true, Mode: "daily", Label: "每日签到", Note: "领取平台当日签到奖励；以平台返回结果为准", Timezone: "UTC+8"}
 	case "qoder":

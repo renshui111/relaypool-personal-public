@@ -23,6 +23,11 @@ func (s *Server) handleAccountCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	result, err := s.scheduler.Checkin(r.Context(), scheduler.AccountRef{ID: a.ID, Provider: a.Provider, Region: a.Region, Enabled: a.Enabled}, true)
+	// A claim may change the balance even if verification subsequently fails.
+	// Do not show the pre-claim cached balance when the console reloads.
+	s.inspectionMu.Lock()
+	delete(s.quotaCache, a.ID)
+	s.inspectionMu.Unlock()
 	if err != nil {
 		if errors.Is(err, provider.ErrUnsupported) {
 			writeError(w, 400, "unsupported_checkin", accountCheckinCapability(a).Note)

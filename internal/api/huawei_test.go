@@ -60,10 +60,8 @@ func TestHuaweiChannelRoutingAcrossProtocols(t *testing.T) {
 			if !strings.Contains(list.Body.String(), `"id":"`+family+`"`) {
 				t.Fatal("Huawei provider absent")
 			}
-			// Quota and check-in are deliberately not advertised without an implemented
-			// read-only control-plane adapter; unsupported must never appear as zero.
-			if s.quotaSupported(family) {
-				t.Fatal("unimplemented quota advertised")
+			if !s.quotaSupported(family) {
+				t.Fatal("Huawei quota capability absent")
 			}
 		})
 	}

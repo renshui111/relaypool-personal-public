@@ -20,6 +20,14 @@ func uriEncode(s string) string { return strings.ReplaceAll(url.QueryEscape(s), 
 // SDK-HMAC-SHA256: canonical URI has a trailing slash; canonical headers
 // have their own final newline. No Authorization header participates in itself.
 func sign(r *http.Request, body []byte, cred provider.Credential) error {
+	return signScoped(r, body, cred, false)
+}
+
+func signV11(r *http.Request, body []byte, cred provider.Credential) error {
+	return signScoped(r, body, cred, true)
+}
+
+func signScoped(r *http.Request, body []byte, cred provider.Credential, v11 bool) error {
 	if cred.Field("access_key") == "" || cred.Field("secret_key") == "" {
 		return fmt.Errorf("华为签名缺少 AK/SK")
 	}
@@ -82,6 +90,22 @@ func sign(r *http.Request, body []byte, cred provider.Credential) error {
 	signedHeaders := strings.Join(keys, ";")
 	request := strings.Join([]string{r.Method, uri, strings.Join(pairs, "&"), canonical.String(), signedHeaders, hash(payload)}, "\n")
 	toSign := "SDK-HMAC-SHA256\n" + r.Header.Get("X-Sdk-Date") + "\n" + hash([]byte(request))
+	if v11 {
+		date := r.Header.Get("X-Sdk-Date")
+		if _, err := time.Parse("20060102T150405Z", date); err != nil {
+			return fmt.Errorf("华为签名时间无效")
+		}
+		scope := date[:8] + "/cn-southwest-2/apic"
+		first := hmac.New(sha256.New, []byte(cred.Field("access_key")))
+		first.Write([]byte(cred.Field("secret_key")))
+		second := hmac.New(sha256.New, first.Sum(nil))
+		second.Write(append([]byte(scope), byte(1)))
+		// V11 uses the hex text of the derived key, not the raw digest.
+		mac := hmac.New(sha256.New, []byte(hex.EncodeToString(second.Sum(nil))))
+		mac.Write([]byte("V11-HMAC-SHA256\n" + date + "\n" + scope + "\n" + hash([]byte(request))))
+		r.Header.Set("Authorization", "V11-HMAC-SHA256 Credential="+cred.Field("access_key")+"/"+scope+", SignedHeaders="+signedHeaders+", Signature="+hex.EncodeToString(mac.Sum(nil)))
+		return nil
+	}
 	mac := hmac.New(sha256.New, []byte(cred.Field("secret_key")))
 	mac.Write([]byte(toSign))
 	r.Header.Set("Authorization", "SDK-HMAC-SHA256 Access="+cred.Field("access_key")+", SignedHeaders="+signedHeaders+", Signature="+hex.EncodeToString(mac.Sum(nil)))

@@ -1,6 +1,6 @@
 # 华为渠道协议参考
 
-本目录提供 relaypool 的华为云码道 CodeArts 与果办 OfficeAce 适配，包含凭证校验、SDK-HMAC-SHA256、DPoP/PKCE、模型目录和 OpenAI 流转换。没有集成第三方账号注册、邀请码自动兑换或凭证扫描程序。
+本目录提供 relaypool 的华为云码道 CodeArts 与果办 OfficeAce 适配，包含凭证校验、SDK-HMAC-SHA256、V11-HMAC-SHA256、DPoP/PKCE、模型目录、积分查询、每日奖励领取和 OpenAI 流转换。没有集成第三方账号注册、邀请码自动兑换或凭证扫描程序。
 
 协议研究及独立测试向量参考以下源代码；已固定本轮查阅提交，未执行这些项目的脚本或导入其运行数据：
 
