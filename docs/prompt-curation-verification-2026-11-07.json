@@ -332,5 +332,29 @@
     "小样本，未覆盖所有型号或长会话",
     "果办 kimi-k3.1-pro 返回 Invalid model；改用码道 kimi-k3",
     "首轮 Qwen JSON 围栏失败被保留，不计为通过"
-  ]
+  ],
+  "deployment": {
+    "version": "personal-prompts-20261107",
+    "commit": "edfc69c",
+    "loaded_presets": 11,
+    "preset_hashes_match": true,
+    "configuration_error": "",
+    "container_health": "healthy",
+    "explicit_full_template": {
+      "model": "glm-5.3",
+      "status": 200,
+      "applied": "recursive-full",
+      "hash_matches": true,
+      "strict_json": true,
+      "arithmetic": true,
+      "repair": true,
+      "fiction": true,
+      "no_fabricated_execution": true,
+      "usage": {
+        "completion_tokens": 785,
+        "prompt_tokens": 569,
+        "total_tokens": 1354
+      }
+    }
+  }
 }
