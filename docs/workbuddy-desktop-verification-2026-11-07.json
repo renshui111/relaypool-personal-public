@@ -1,0 +1,138 @@
+{
+  "scope": "Benign interface compatibility; not a detection-evasion evaluation",
+  "profile": "desktop-5.9.3",
+  "version": "personal-workbuddy-login-20261107",
+  "commit": "41cfc1a",
+  "isolated": {
+    "time": "2026-11-07T11:59:08.373Z",
+    "port": 8788,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1827,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1539,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1866,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 2060,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1327,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 38
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "production": {
+    "time": "2026-11-07T11:59:37.269Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1168,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1116,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1462,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 2093,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1429,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 138
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "standard_api": {
+    "time": "2026-11-07T11:59:57.942Z",
+    "model": "workbuddy/glm-5.2",
+    "status": 200,
+    "passed": true,
+    "accounts": [
+      {
+        "enabled": true,
+        "has_credential": true,
+        "status": "ready",
+        "expires": "2026-12-07T11:58:25Z"
+      }
+    ]
+  }
+}
