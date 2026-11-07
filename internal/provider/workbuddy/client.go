@@ -30,6 +30,8 @@ type Config struct {
 	ProxyURL string
 	// UserAgent overrides the default client identity.
 	UserAgent string
+	// IdentityProfile selects an opt-in CN chat/catalog identity. Empty keeps CLI.
+	IdentityProfile string
 }
 
 // Client is the WorkBuddy adapter.
@@ -193,6 +195,7 @@ func (c *Client) FetchCatalog(ctx context.Context, req provider.Credential) ([]p
 	if c.cfg.UserAgent != "" {
 		httpReq.Header.Set("User-Agent", c.cfg.UserAgent)
 	}
+	c.applyIdentityProfile(httpReq.Header, cred)
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
@@ -413,6 +416,7 @@ func (c *Client) ChatStream(ctx context.Context, cred provider.Credential, req *
 	if c.cfg.UserAgent != "" {
 		httpReq.Header.Set("User-Agent", c.cfg.UserAgent)
 	}
+	c.applyIdentityProfile(httpReq.Header, decoded)
 
 	resp, err := c.streamer.Do(httpReq)
 	if err != nil {

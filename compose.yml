@@ -15,6 +15,7 @@ services:
       RELAYPOOL_RUNTIME_DIR: /run/relaypool
       TZ: Asia/Shanghai
       RELAYPOOL_PROXY_URL: ${RELAYPOOL_PROXY_URL:-}
+      RELAYPOOL_WORKBUDDY_IDENTITY: ${RELAYPOOL_WORKBUDDY_IDENTITY:-cli}
     ports:
       - "127.0.0.1:8787:8787"
     volumes:

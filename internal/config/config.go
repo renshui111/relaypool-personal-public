@@ -165,7 +165,8 @@ type UpstreamConfig struct {
 	// direct. Loopback targets always bypass it.
 	ProxyURL string `json:"proxy_url"`
 	// UserAgent overrides the provider default when non-empty.
-	UserAgent string `json:"user_agent"`
+	UserAgent         string `json:"user_agent"`
+	WorkBuddyIdentity string `json:"workbuddy_identity"`
 	// PassthroughIP forwards the caller's remote address upstream. Off by
 	// default: it leaks the client and can trip upstream risk control.
 	PassthroughIP bool `json:"passthrough_ip"`
@@ -365,12 +366,13 @@ type sessionFile struct {
 }
 
 type upstreamFile struct {
-	Timeout       *durationField `json:"timeout"`
-	HeaderTimeout *durationField `json:"header_timeout"`
-	IdleTimeout   *durationField `json:"idle_timeout"`
-	ProxyURL      *string        `json:"proxy_url"`
-	UserAgent     *string        `json:"user_agent"`
-	PassthroughIP *bool          `json:"passthrough_ip"`
+	Timeout           *durationField `json:"timeout"`
+	HeaderTimeout     *durationField `json:"header_timeout"`
+	IdleTimeout       *durationField `json:"idle_timeout"`
+	ProxyURL          *string        `json:"proxy_url"`
+	UserAgent         *string        `json:"user_agent"`
+	WorkBuddyIdentity *string        `json:"workbuddy_identity"`
+	PassthroughIP     *bool          `json:"passthrough_ip"`
 }
 
 type scheduleFile struct {
@@ -449,6 +451,7 @@ func applyFile(cfg *Config, raw []byte) error {
 		setDuration(&cfg.Upstream.IdleTimeout, u.IdleTimeout)
 		setString(&cfg.Upstream.ProxyURL, u.ProxyURL)
 		setString(&cfg.Upstream.UserAgent, u.UserAgent)
+		setString(&cfg.Upstream.WorkBuddyIdentity, u.WorkBuddyIdentity)
 		setBool(&cfg.Upstream.PassthroughIP, u.PassthroughIP)
 	}
 	if sc := fc.Schedule; sc != nil {
@@ -494,6 +497,7 @@ func applyEnv(cfg *Config) {
 	setEnvString(&cfg.Routing, "RELAYPOOL_ROUTING")
 	setBool(&cfg.CrossProviderPool, envBool("RELAYPOOL_CROSS_PROVIDER_POOL"))
 	setEnvString(&cfg.Upstream.ProxyURL, "RELAYPOOL_PROXY_URL")
+	setEnvString(&cfg.Upstream.WorkBuddyIdentity, "RELAYPOOL_WORKBUDDY_IDENTITY")
 	setEnvString(&cfg.Armor.Dir, "RELAYPOOL_ARMOR_DIR")
 	setEnvString(&cfg.Armor.Default, "RELAYPOOL_ARMOR_DEFAULT")
 	setEnvBool(&cfg.Armor.Enabled, "RELAYPOOL_ARMOR_ENABLED")
@@ -648,6 +652,11 @@ func (c *Config) Validate() error {
 	}
 	if c.Prompts.Mode == "replace" && strings.TrimSpace(c.Prompts.Text) == "" {
 		return fmt.Errorf("prompts.mode is replace but prompts.text is empty")
+	}
+	switch c.Upstream.WorkBuddyIdentity {
+	case "", "cli", "desktop-5.9.3":
+	default:
+		return fmt.Errorf("upstream.workbuddy_identity must be cli or desktop-5.9.3")
 	}
 	if strings.TrimSpace(c.Upstream.ProxyURL) != "" {
 		if _, err := url.Parse(c.Upstream.ProxyURL); err != nil {

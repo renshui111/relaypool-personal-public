@@ -110,11 +110,12 @@ func New(opts Options) *Server {
 	}
 	registry.Register(compatible.New(compatibleConfig))
 	registry.Register(workbuddy.New(workbuddy.Config{
-		Timeout:       opts.Config.Upstream.Timeout,
-		HeaderTimeout: opts.Config.Upstream.HeaderTimeout,
-		IdleTimeout:   opts.Config.Upstream.IdleTimeout,
-		ProxyURL:      opts.Config.Upstream.ProxyURL,
-		UserAgent:     opts.Config.Upstream.UserAgent,
+		Timeout:         opts.Config.Upstream.Timeout,
+		HeaderTimeout:   opts.Config.Upstream.HeaderTimeout,
+		IdleTimeout:     opts.Config.Upstream.IdleTimeout,
+		ProxyURL:        opts.Config.Upstream.ProxyURL,
+		UserAgent:       opts.Config.Upstream.UserAgent,
+		IdentityProfile: opts.Config.Upstream.WorkBuddyIdentity,
 	}))
 
 	accountPool := pool.New(opts.Config.Routing)
