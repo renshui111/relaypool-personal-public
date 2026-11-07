@@ -27,7 +27,10 @@ type loginUpstream struct {
 	tokenStatus int
 	tokenCode   int
 	// tokenData is the data object the token endpoint returns.
-	tokenData string
+	tokenData    string
+	accountData  string
+	accountCode  int
+	accountCalls int
 	// stateCalls/tokenCalls count the requests received.
 	stateCalls int
 	tokenCalls int
@@ -61,6 +64,24 @@ func (u *loginUpstream) server(t *testing.T) *httptest.Server {
 		}
 		payload := map[string]any{"code": u.tokenCode, "msg": "ok", "data": data}
 		_ = json.NewEncoder(w).Encode(payload)
+	})
+	mux.HandleFunc("/v2/plugin/login/account", func(w http.ResponseWriter, r *http.Request) {
+		u.accountCalls++
+		if r.URL.Query().Get("state") != "st_test" || r.Header.Get("Authorization") != "Bearer at_1" {
+			t.Error("account stage lost state or bearer")
+		}
+		if r.Header.Get("X-Refresh-Token") != "" {
+			t.Error("account stage leaked refresh token")
+		}
+		code := u.accountCode
+		if u.accountData == "" && code == 0 {
+			code = 12151
+		}
+		var data any
+		if u.accountData != "" {
+			_ = json.Unmarshal([]byte(u.accountData), &data)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": code, "data": data})
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -154,7 +175,7 @@ func TestStartLoginSurfacesAnUpstreamRefusal(t *testing.T) {
 // That is the NORMAL pending state and must not look like a failure, or the
 // console would show an error while the operator is still in their browser.
 func TestPollLoginReportsPendingWithoutError(t *testing.T) {
-	up := &loginUpstream{tokenStatus: 200, tokenCode: 40002}
+	up := &loginUpstream{tokenStatus: 200, tokenCode: 11217}
 	srv := up.server(t)
 	client := newLoginClient(t, srv.URL)
 
@@ -200,6 +221,9 @@ func TestPollLoginProducesACompleteCredential(t *testing.T) {
 	}
 	if !cred.Ready() {
 		t.Errorf("the produced credential is not usable: %+v", cred)
+	}
+	if time.Until(cred.Expiry()) < 59*time.Minute || time.Until(cred.Expiry()) > time.Hour {
+		t.Fatal("login expiry not retained")
 	}
 }
 
@@ -259,8 +283,49 @@ func TestLoginStateIsSingleUse(t *testing.T) {
 		t.Fatalf("first poll: done=%v err=%v", done, err)
 	}
 
+	if _, done, err := client.PollLogin(context.Background(), "acc_1", false); err != nil || !done || up.tokenCalls != 1 {
+		t.Fatal("save retry must reuse acquired token")
+	}
+	client.CancelLogin("acc_1")
 	if _, _, err := client.PollLogin(context.Background(), "acc_1", false); err == nil {
-		t.Error("a second poll after success must be refused: the state is single-use")
+		t.Error("acknowledged state must not be reusable")
+	}
+}
+
+func TestLoginFetchesAccountAfterTokenAndRetriesWithoutReexchange(t *testing.T) {
+	up := &loginUpstream{tokenData: `{"accessToken":"at_1","refreshToken":"rt_1","domain":"codebuddy.cn","expires_in":3600,"created_at":1900000000}`}
+	client := newLoginClient(t, up.server(t).URL)
+	_, _, err := client.StartLogin(t.Context(), "two-stage", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { client.CancelLogin("two-stage") })
+	if _, done, err := client.PollLogin(t.Context(), "two-stage", false); err != nil || done {
+		t.Fatalf("account pending: %v", err)
+	}
+	up.accountData = `{"account":{"uid":"account-uid","enterpriseId":"enterprise","nickname":"test"}}`
+	cred, done, err := client.PollLogin(t.Context(), "two-stage", false)
+	if err != nil || !done || cred.UID != "account-uid" || cred.RefreshToken != "rt_1" || cred.Nickname != "test" || cred.ExpiresAt != 1900003600 {
+		t.Fatalf("incomplete two-stage login: done=%v err=%v", done, err)
+	}
+	if up.tokenCalls != 1 || up.accountCalls != 2 {
+		t.Fatal("token was exchanged again during account-stage retry")
+	}
+}
+
+func TestLoginShowsRejectedAndMalformedResponses(t *testing.T) {
+	for _, body := range []string{`not-json`, `{"data":{}}`, `{"code":12153,"msg":"private-token"}`, `{"code":0,"data":{"refreshToken":"private-token"}}`} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) }))
+		client := newLoginClient(t, srv.URL)
+		loginMu.Lock()
+		loginStates["invalid"] = &loginProgress{state: "st_test"}
+		loginMu.Unlock()
+		_, done, err := client.PollLogin(t.Context(), "invalid", false)
+		if err == nil || done || strings.Contains(err.Error(), "private-token") {
+			t.Fatal("invalid reply hidden as pending or secret leaked")
+		}
+		client.CancelLogin("invalid")
+		srv.Close()
 	}
 }
 

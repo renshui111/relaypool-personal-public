@@ -45,7 +45,7 @@ func TestSecurityLoginErrorsDoNotEchoTokenBody(t *testing.T) {
 		t.Fatal("授权错误公开上游秘密正文")
 	}
 	loginMu.Lock()
-	loginStates["private-login"] = "st_test"
+	loginStates["private-login"] = &loginProgress{state: "st_test"}
 	loginMu.Unlock()
 	defer client.CancelLogin("private-login")
 	_, _, err = client.PollLogin(t.Context(), "private-login", false)

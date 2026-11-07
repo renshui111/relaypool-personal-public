@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile
       args:
-        APP_VERSION: ${RELAYPOOL_VERSION:-personal-prompts-20261107}
+        APP_VERSION: ${RELAYPOOL_VERSION:-personal-workbuddy-login-20261107}
         APP_COMMIT: ${RELAYPOOL_COMMIT:-unknown}
     image: relaypool:personal
     container_name: relaypool

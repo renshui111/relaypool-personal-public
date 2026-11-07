@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/relaypool/relaypool/internal/provider"
@@ -51,8 +52,9 @@ type pendingLogin struct {
 	started  time.Time
 	// lastErr records why the last poll failed, so the console can show a
 	// reason instead of an indefinite spinner.
-	lastErr string
-	flow    *browserAttempt
+	lastErr     string
+	flow        *browserAttempt
+	workbuddyMu *sync.Mutex
 }
 
 // startLoginRequest is the body of POST /admin/accounts/login/start.
@@ -156,7 +158,7 @@ func (s *Server) handleAccountLoginStatus(w http.ResponseWriter, r *http.Request
 	pending, ok := s.getLogin(id)
 	if !ok {
 		// Claude 的回调会先保存账号；随后到达的轮询仍能获知完成结果。
-		if s.replyCompletedClaudeLogin(w, r.Context(), id) {
+		if s.replyCompletedClaudeLogin(w, r.Context(), id) || s.replyCompletedWorkBuddyLogin(w, r.Context(), id) {
 			return
 		}
 		writeError(w, http.StatusNotFound, "not_found",
@@ -181,6 +183,16 @@ func (s *Server) handleAccountLoginStatus(w http.ResponseWriter, r *http.Request
 	client := s.workbuddyLoginClient()
 	if client == nil {
 		writeError(w, http.StatusServiceUnavailable, "provider_unavailable", "the workbuddy adapter is not configured")
+		return
+	}
+	if pending.workbuddyMu != nil {
+		pending.workbuddyMu.Lock()
+		defer pending.workbuddyMu.Unlock()
+	}
+	if _, current := s.getLogin(id); !current {
+		if !s.replyCompletedWorkBuddyLogin(w, r.Context(), id) {
+			writeJSON(w, http.StatusOK, map[string]any{"status": loginExpired})
+		}
 		return
 	}
 
@@ -217,6 +229,8 @@ func (s *Server) handleAccountLoginStatus(w http.ResponseWriter, r *http.Request
 
 	if err := s.store.SetAccountEnabled(r.Context(), id, true); err != nil {
 		log.Printf("admin: login %s: enable: %v", id, err)
+		writeError(w, http.StatusInternalServerError, "internal_error", "登录态已保存，但启用账号失败，请重试")
+		return
 	}
 	account, err := s.store.GetAccount(r.Context(), id)
 	if err != nil {
@@ -258,7 +272,19 @@ func (s *Server) storeBrowserCredential(r *http.Request, pending pendingLogin, c
 		AccountID: pending.account.ID,
 		Format:    workbuddy.CredentialFormat,
 		Payload:   payload,
+		AuthType:  "oauth",
+		ExpiresAt: cred.Expiry(),
 	})
+}
+
+func (s *Server) replyCompletedWorkBuddyLogin(w http.ResponseWriter, ctx context.Context, id string) bool {
+	account, err := s.store.GetAccount(ctx, id)
+	if err != nil || account.Provider != workbuddy.Family || !account.Enabled || !account.HasCredential || account.AuthType != "oauth" {
+		return false
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]any{"status": loginDone, "account": accountView(account)})
+	return true
 }
 
 // workbuddyLoginClient returns the workbuddy adapter, or nil when it is not
@@ -291,11 +317,12 @@ func (s *Server) beginLogin(account store.Account, providerName string, global b
 		s.logins = map[string]pendingLogin{}
 	}
 	s.logins[account.ID] = pendingLogin{
-		id:       account.ID,
-		account:  account,
-		provider: providerName,
-		global:   global,
-		started:  time.Now(),
+		id:          account.ID,
+		account:     account,
+		provider:    providerName,
+		global:      global,
+		started:     time.Now(),
+		workbuddyMu: &sync.Mutex{},
 	}
 }
 
@@ -400,7 +427,7 @@ func (s *Server) finishLogin(id string, succeeded bool) bool {
 	if !ok {
 		return false
 	}
-	if !succeeded && pending.provider == workbuddy.Family {
+	if pending.provider == workbuddy.Family {
 		if client := s.workbuddyLoginClient(); client != nil {
 			client.CancelLogin(id)
 		}
@@ -438,9 +465,14 @@ func (s *Server) finishLogin(id string, succeeded bool) bool {
 // It reports whether it actually removed the account, so a caller cleaning up
 // many logins can reload the pool once at the end instead of after each one.
 func (s *Server) discardLogin(ctx context.Context, id string) bool {
-	if pending, ok := s.getLogin(id); ok && pending.flow != nil {
-		pending.flow.mu.Lock()
-		defer pending.flow.mu.Unlock()
+	if pending, ok := s.getLogin(id); ok {
+		if pending.flow != nil {
+			pending.flow.mu.Lock()
+			defer pending.flow.mu.Unlock()
+		} else if pending.workbuddyMu != nil {
+			pending.workbuddyMu.Lock()
+			defer pending.workbuddyMu.Unlock()
+		}
 	}
 	if !s.finishLogin(id, false) {
 		return false

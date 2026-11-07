@@ -19,8 +19,15 @@ import (
 // restart is dead weight, and a restart mid-login should simply start over.
 var (
 	loginMu     sync.Mutex
-	loginStates = map[string]string{}
+	loginStates = map[string]*loginProgress{}
 )
+
+type loginProgress struct {
+	mu         sync.Mutex
+	state      string
+	credential Credential
+	ready      bool
+}
 
 // StartLogin asks the upstream for a fresh authorization state and returns the
 // URL the user must open in a browser.
@@ -30,11 +37,12 @@ var (
 // history and chat logs. Driving the documented plugin login flow keeps the
 // token inside this process.
 //
-// The flow is three steps, and this is step one:
+// This is the first step of the browser login flow:
 //
 //  1. POST /v2/plugin/auth/state  -> {state, authUrl}   (here)
 //  2. the user opens authUrl and signs in
 //  3. GET  /v2/plugin/auth/token?state=...  -> tokens   (PollLogin)
+//  4. GET  /v2/plugin/login/account?state=... -> account identity (Bearer)
 func (c *Client) StartLogin(ctx context.Context, accountID string, global bool) (authURL, state string, err error) {
 	base := ChatBaseCN
 	if global {
@@ -76,7 +84,7 @@ func (c *Client) StartLogin(ctx context.Context, accountID string, global bool) 
 	}
 
 	loginMu.Lock()
-	loginStates[accountID] = data.State
+	loginStates[accountID] = &loginProgress{state: data.State}
 	loginMu.Unlock()
 
 	return data.AuthURL, data.State, nil
@@ -97,80 +105,124 @@ func (c *Client) StartLogin(ctx context.Context, accountID string, global bool) 
 // boundary is what lets the login flow be tested without a database.
 func (c *Client) PollLogin(ctx context.Context, accountID string, global bool) (cred Credential, done bool, err error) {
 	loginMu.Lock()
-	state := loginStates[accountID]
+	progress := loginStates[accountID]
 	loginMu.Unlock()
-	if state == "" {
+	if progress == nil {
 		return Credential{}, false, fmt.Errorf("workbuddy: no login in progress for account %s", accountID)
 	}
+	progress.mu.Lock()
+	defer progress.mu.Unlock()
+	if progress.ready {
+		return progress.credential, true, nil
+	}
+	state := progress.state
 
 	base := ChatBaseCN
 	if global {
 		base = ChatBaseGlobal
 	}
 
-	body, status, err := c.loginRequest(ctx, http.MethodGet,
-		base+pathAuthToken+"?state="+url.QueryEscape(state), nil, base)
-	if err != nil {
-		return Credential{}, false, err
+	if progress.credential.AccessToken == "" {
+		body, status, err := c.loginRequest(ctx, http.MethodGet, base+pathAuthToken+"?state="+url.QueryEscape(state), nil, base)
+		if err != nil {
+			return Credential{}, false, err
+		}
+		data, pending, err := loginPayload(body, status, "令牌", 11217)
+		if err != nil || pending {
+			return Credential{}, false, err
+		}
+		token, err := DecodeCredential(data)
+		if err != nil {
+			return Credential{}, false, fmt.Errorf("WorkBuddy 令牌响应缺少有效登录态，请重新授权")
+		}
+		var expiry struct {
+			ExpiresIn      int64 `json:"expiresIn"`
+			ExpiresInSnake int64 `json:"expires_in"`
+			CreatedAt      int64 `json:"created_at"`
+		}
+		if json.Unmarshal(data, &expiry) != nil {
+			return Credential{}, false, fmt.Errorf("WorkBuddy 令牌有效期格式无效")
+		}
+		if token.ExpiresAt == 0 {
+			seconds := firstNonZero(expiry.ExpiresIn, expiry.ExpiresInSnake)
+			if seconds > 0 && seconds <= 366*24*60*60 {
+				created := expiry.CreatedAt
+				if created > 1e12 {
+					created /= 1000
+				}
+				if created <= 0 {
+					created = time.Now().Unix()
+				}
+				token.ExpiresAt = created + seconds
+			}
+		}
+		token.Domain = orDefault(token.Domain, domainFor(global))
+		progress.credential = token
 	}
-
-	// A 5xx means the upstream is unwell, which is worth surfacing rather than
-	// looping on forever.
-	if status >= 500 {
-		return Credential{}, false, fmt.Errorf("WorkBuddy 令牌服务返回 HTTP %d，请稍后重试", status)
+	cred = progress.credential
+	// The token endpoint normally does not contain uid. Fetch the separate
+	// account stage with the SAME state and token, rather than polling forever.
+	if cred.UID == "" {
+		body, status, err := c.loginRequest(ctx, http.MethodGet, base+pathAuthAccount+"?state="+url.QueryEscape(state), nil, base, cred.AccessToken)
+		if err != nil {
+			return Credential{}, false, err
+		}
+		data, pending, err := loginPayload(body, status, "账号信息", 12151)
+		if err != nil || pending {
+			return Credential{}, false, err
+		}
+		var info struct {
+			UID          string `json:"uid"`
+			AccountUID   string `json:"account_uid"`
+			EnterpriseID string `json:"enterpriseId"`
+			Nickname     string `json:"nickname"`
+			Account      struct {
+				UID          string `json:"uid"`
+				EnterpriseID string `json:"enterpriseId"`
+				Nickname     string `json:"nickname"`
+			} `json:"account"`
+		}
+		if json.Unmarshal(data, &info) != nil {
+			return Credential{}, false, fmt.Errorf("WorkBuddy 账号信息格式无效")
+		}
+		cred.UID = firstNonEmpty(info.Account.UID, info.UID, info.AccountUID)
+		cred.EnterpriseID = firstNonEmpty(info.Account.EnterpriseID, info.EnterpriseID, cred.EnterpriseID)
+		cred.Nickname = firstNonEmpty(info.Account.Nickname, info.Nickname, cred.Nickname)
+		if !cred.Ready() {
+			return Credential{}, false, fmt.Errorf("WorkBuddy 已授权，但账号信息缺少账号 ID，请重试")
+		}
 	}
-
-	var envelope struct {
-		Code int             `json:"code"`
-		Msg  string          `json:"msg"`
-		Data json.RawMessage `json:"data"`
+	if cred.IsGlobal() != global {
+		return Credential{}, false, fmt.Errorf("WorkBuddy 授权地区与所选地区不一致")
 	}
-	_ = json.Unmarshal(body, &envelope)
-
-	// Any non-success while the user is still in the browser is "keep waiting",
-	// not an error: the upstream returns a non-zero code until the
-	// authorization completes.
-	if status >= 300 || envelope.Code != 0 {
-		return Credential{}, false, nil
-	}
-
-	var token struct {
-		AccessToken  string `json:"accessToken"`
-		RefreshToken string `json:"refreshToken"`
-		Domain       string `json:"domain"`
-		ExpiresIn    int64  `json:"expiresIn"`
-		UID          string `json:"uid"`
-		EnterpriseID string `json:"enterpriseId"`
-	}
-	if err := json.Unmarshal(envelope.Data, &token); err != nil {
-		return Credential{}, false, fmt.Errorf("workbuddy: token payload: %w", err)
-	}
-	if token.AccessToken == "" || token.UID == "" {
-		// The upstream sometimes reports success before the identity is
-		// populated; treat that as still-pending rather than as a broken
-		// credential, which would otherwise be stored and fail every request.
-		return Credential{}, false, nil
-	}
-
-	cred = Credential{
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		Domain:       orDefault(token.Domain, domainFor(global)),
-		UID:          token.UID,
-		EnterpriseID: token.EnterpriseID,
-	}
-
-	// The state is single-use: clearing it means a second poll after success
-	// cannot mint a second credential, and the map does not grow unboundedly.
-	loginMu.Lock()
-	delete(loginStates, accountID)
-	loginMu.Unlock()
-
+	// Keep the acquired token in memory until the API confirms persistence.
+	// A database failure must not force a second one-time token exchange.
+	progress.credential, progress.ready = cred, true
 	return cred, true, nil
 }
 
-// CancelLogin forgets a login in progress, so an abandoned attempt does not
-// leave a state that a later poll could exchange.
+func loginPayload(body []byte, status int, stage string, pendingCode int) (json.RawMessage, bool, error) {
+	if status != http.StatusOK {
+		return nil, false, fmt.Errorf("WorkBuddy %s服务返回 HTTP %d，请重试或重新授权", stage, status)
+	}
+	var envelope struct {
+		Code *int            `json:"code"`
+		Data json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(body, &envelope) != nil || envelope.Code == nil {
+		return nil, false, fmt.Errorf("WorkBuddy %s服务返回了无效响应", stage)
+	}
+	if *envelope.Code == pendingCode {
+		return nil, true, nil
+	}
+	if *envelope.Code != 0 {
+		return nil, false, fmt.Errorf("WorkBuddy %s服务拒绝请求（代码 %d），请重新授权", stage, *envelope.Code)
+	}
+	return envelope.Data, false, nil
+}
+
+// CancelLogin forgets an abandoned or durably saved login, including cached
+// tokens. The API calls this only after persistence or explicit cancellation.
 func (c *Client) CancelLogin(accountID string) {
 	loginMu.Lock()
 	delete(loginStates, accountID)
@@ -178,7 +230,7 @@ func (c *Client) CancelLogin(accountID string) {
 }
 
 // loginRequest performs one login call with the shared headers.
-func (c *Client) loginRequest(ctx context.Context, method, endpoint string, payload []byte, base string) ([]byte, int, error) {
+func (c *Client) loginRequest(ctx context.Context, method, endpoint string, payload []byte, base string, bearer ...string) ([]byte, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
 
@@ -194,6 +246,9 @@ func (c *Client) loginRequest(ctx context.Context, method, endpoint string, payl
 		return nil, 0, fmt.Errorf("workbuddy: build login request: %w", err)
 	}
 	setLoginHeaders(req.Header, base == ChatBaseGlobal)
+	if len(bearer) > 0 && bearer[0] != "" {
+		req.Header.Set("Authorization", "Bearer "+bearer[0])
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {
