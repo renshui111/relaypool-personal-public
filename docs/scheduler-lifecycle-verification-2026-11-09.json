@@ -1,0 +1,86 @@
+{
+  "version": "personal-scheduler-lifecycle-20261109",
+  "commit": "45937f8",
+  "automated": {
+    "go_test": true,
+    "go_vet": true,
+    "race_api": true,
+    "race_scheduler_runs": 5,
+    "concurrent_callers_per_run": 32,
+    "start_stop_pairs_per_caller": 20,
+    "old_code_regression": "failed as expected: restart returned before previous workers finished",
+    "fixed_code_regression": "passed",
+    "workers_overlap": false,
+    "workers_remaining_after_stop": 0
+  },
+  "live": {
+    "time": "2026-11-09T11:44:07.348Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1970,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1538,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1461,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 1913,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1574,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 134
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "cancellation": {
+    "test": "client-aborts-live-stream",
+    "status": 200,
+    "received_content": true,
+    "inflight_released": true,
+    "done_before_abort": false,
+    "passed": true
+  },
+  "healthy": true,
+  "ready": true,
+  "deployment_note": "Local image includes pre-existing model directory filtering changes not included in this commit."
+}
