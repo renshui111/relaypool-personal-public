@@ -1,0 +1,87 @@
+{
+  "version": "personal-stream-lifecycle-20261109",
+  "commit": "1aa8a5a",
+  "automated": {
+    "go_test": true,
+    "go_vet": true,
+    "race_packages": [
+      "internal/provider/workbuddy",
+      "internal/provider/compatible",
+      "internal/provider/native",
+      "internal/provider/subscriptions",
+      "internal/api"
+    ],
+    "concurrent_close_calls": 32,
+    "underlying_close_calls": 1,
+    "concurrent_reads": 64
+  },
+  "live": {
+    "time": "2026-11-09T10:26:01.811Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1360,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1736,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1982,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 2374,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1532,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 120
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "cancellation": {
+    "test": "client-aborts-live-stream",
+    "status": 200,
+    "received_content": true,
+    "inflight_released": true,
+    "done_before_abort": false,
+    "passed": true
+  },
+  "healthy": true,
+  "deployment_note": "Local image also includes pre-existing model directory filtering changes that are not part of this commit."
+}
