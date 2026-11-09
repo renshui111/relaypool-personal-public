@@ -140,6 +140,7 @@ docker compose up -d --no-build --force-recreate
 | `attempt to write a readonly database` | 恢复卷是否可写，`/data` 是否属于 UID/GID `10001:10001`，不能把数据目录只读挂载 |
 | 凭证／秘密解密失败 | 数据库必须配套原 `credential.key` 或原环境密钥；重新生成密钥无法解密旧数据 |
 | 浏览器授权不回调 | 使用本机地址，检查端口；按页面回填完整地址或授权码，保留状态字段 |
+| 重新登录后担心旧续期覆盖 | 新版后台续期核对调用前快照；账号已换凭证或凭证已删除时丢弃旧结果，见[续期保护](CREDENTIAL-REFRESH.md) |
 | 容器无法访问电脑上的代理 | 容器的 localhost 指向自己；检查 `host.docker.internal`、监听地址和防火墙 |
 | Token 或剩余额度未知 | 上游未提供完整数据；不是自动计为零，也不是本地计费失败 |
 | 某个账号目录一直旧、续期没有变化 | 看后台任务日志；目录单号 30 秒、续期单号 60 秒后取消并继续后续账号，失败保留旧数据，见[后台任务说明](BACKGROUND-JOBS.md) |

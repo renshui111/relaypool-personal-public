@@ -453,7 +453,7 @@ func (s *Scheduler) refreshForCheckin(ctx context.Context, accountID string, ada
 	if !ok {
 		return provider.Credential{}, fmt.Errorf("无法持久保存签到登录态，未进行续期")
 	}
-	updated, err := adapter.Refresh(ctx, cred)
+	updated, err := refreshWithSnapshot(ctx, adapter, cred)
 	if err != nil {
 		return provider.Credential{}, err
 	}
@@ -506,7 +506,7 @@ func (s *Scheduler) keepaliveOne(ctx context.Context, account AccountRef) {
 	if !cred.ExpiresAt.IsZero() && cred.ExpiresAt.Sub(s.now()) > 6*time.Hour {
 		return
 	}
-	refreshed, err := adapter.Refresh(ctx, cred)
+	refreshed, err := refreshWithSnapshot(ctx, adapter, cred)
 	if err != nil {
 		if !errorsIs(err, provider.ErrUnsupported) {
 			log.Printf("scheduler: keepalive for %s failed: %v", account.ID, err)
@@ -524,6 +524,21 @@ func (s *Scheduler) keepaliveOne(ctx context.Context, account AccountRef) {
 // credential. It is an optional interface so a read-only source still works.
 type CredentialSaver interface {
 	SaveRefreshedCredential(ctx context.Context, accountID string, cred provider.Credential) error
+}
+
+// Own the comparison snapshot here instead of relying on every adapter to
+// populate PreviousRaw. Copy before calling Refresh, which may reuse Raw.
+func refreshWithSnapshot(ctx context.Context, adapter provider.Provider, cred provider.Credential) (provider.Credential, error) {
+	if len(cred.Raw) == 0 {
+		return provider.Credential{}, fmt.Errorf("缺少原始凭证，无法安全保存续期结果")
+	}
+	previous := append([]byte(nil), cred.Raw...)
+	updated, err := adapter.Refresh(ctx, cred)
+	if err != nil {
+		return provider.Credential{}, err
+	}
+	updated.PreviousRaw = previous
+	return updated, nil
 }
 
 // NormalizeHours sorts and deduplicates an hour list.

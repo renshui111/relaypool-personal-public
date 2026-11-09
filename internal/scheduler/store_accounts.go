@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/relaypool/relaypool/internal/provider"
@@ -98,20 +99,15 @@ func (a StoreAccounts) MergeCatalog(accountID string, models []provider.ModelInf
 func (a StoreAccounts) SaveRefreshedCredential(ctx context.Context, accountID string, cred provider.Credential) error {
 	payload := cred.Raw
 	if len(payload) == 0 {
-		return nil
+		return fmt.Errorf("续期结果为空，未更新凭证")
+	}
+	if len(cred.PreviousRaw) == 0 {
+		return fmt.Errorf("缺少原始凭证快照，未更新凭证")
 	}
 	format := cred.Provider + "-oauth-v1"
-	if len(cred.PreviousRaw) > 0 {
-		saved, err := a.Store.ReplaceCredentialIfUnchanged(ctx, cred.PreviousRaw, store.Credential{AccountID: accountID, Format: format, Payload: payload, ExpiresAt: cred.ExpiresAt})
-		if saved && a.OnCredentialRefresh != nil {
-			a.OnCredentialRefresh(accountID)
-		}
-		return err
+	saved, err := a.Store.ReplaceCredentialIfUnchanged(ctx, cred.PreviousRaw, store.Credential{AccountID: accountID, Format: format, Payload: payload, ExpiresAt: cred.ExpiresAt})
+	if saved && a.OnCredentialRefresh != nil {
+		a.OnCredentialRefresh(accountID)
 	}
-	return a.Store.UpsertCredential(ctx, store.Credential{
-		AccountID: accountID,
-		Format:    format,
-		Payload:   payload,
-		ExpiresAt: cred.ExpiresAt,
-	})
+	return err
 }
