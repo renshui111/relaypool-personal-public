@@ -100,12 +100,15 @@ type Scheduler struct {
 	// does not re-fire on every tick within its hour.
 	lastRun map[string]time.Time
 
-	mu        sync.Mutex
-	started   bool
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	checkinMu sync.Mutex
-	checking  map[string]bool
+	// Lifecycle operations are serialized through worker startup and shutdown.
+	// Workers must not take lifecycleMu: Stop holds it while waiting for them.
+	lifecycleMu sync.Mutex
+	mu          sync.Mutex // hourly run history; workers may take this while stopping
+	started     bool
+	cancel      context.CancelFunc
+	wg          sync.WaitGroup
+	checkinMu   sync.Mutex
+	checking    map[string]bool
 }
 
 // New creates a scheduler.
@@ -145,15 +148,14 @@ func (s *Scheduler) SetLogPruner(prune func(context.Context, time.Duration) (int
 // It is idempotent: a second call is ignored, so a caller cannot accidentally
 // start two sets of jobs against the same pool.
 func (s *Scheduler) Start(ctx context.Context) {
-	s.mu.Lock()
-	if s.started {
-		s.mu.Unlock()
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.started || ctx.Err() != nil {
 		return
 	}
 	s.started = true
 	loopCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
-	s.mu.Unlock()
 
 	s.wg.Add(1)
 	go s.catalogLoop(loopCtx)
@@ -206,14 +208,15 @@ func (s *Scheduler) logPruneLoop(ctx context.Context) {
 
 // Stop halts the background loops and waits for them to finish.
 func (s *Scheduler) Stop() {
-	s.mu.Lock()
-	cancel := s.cancel
-	s.started = false
-	s.mu.Unlock()
-	if cancel != nil {
-		cancel()
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if !s.started {
+		return
 	}
+	s.cancel()
 	s.wg.Wait()
+	s.cancel = nil
+	s.started = false
 	log.Printf("scheduler: stopped")
 }
 

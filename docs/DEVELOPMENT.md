@@ -57,6 +57,8 @@ docker run --rm --mount "type=bind,source=${PWD},target=/src" -w /src golang:1.2
 
 后台任务超时回归使用标准库 `testing/synctest` 的虚拟时间，验证真实的 30／60 秒期限而无需等待同样长的现实时间。运行 `go test -race ./internal/scheduler` 可检查超时后继续下一账号、保留原目录、父级取消及凭证保存行为。
 
+启停回归另使用受控清理回调和并发调用检查新旧任务隔离，可用 `go test -race ./internal/scheduler -count=5` 重复验证。生命周期锁不供后台任务获取，避免停止时持锁等待任务、任务又等待同一锁的循环。安装回调在启动前完成，回调不反向调用本实例的启停方法。
+
 ## 浏览器冒烟检查
 
 `scripts/personal-smoke.mjs` 检查保留 API 和页面、鉴权、已删除入口以及浏览器异常，不创建账号或发送上游聊天。默认目标是 `127.0.0.1:8788`，请显式指定自己要检查的本机实例。
