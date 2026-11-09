@@ -655,21 +655,19 @@ func (c *Client) Refresh(ctx context.Context, req provider.Credential) (provider
 		return provider.Credential{}, classifyHTTP(resp.StatusCode, resp.Header.Get("Retry-After"), body)
 	}
 
-	var payload struct {
-		AccessToken  string `json:"accessToken"`
-		AccessToken2 string `json:"access_token"`
-		ExpiresAt    int64  `json:"expiresAt"`
-		ExpiresAt2   int64  `json:"expires_at"`
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil || len(raw) > 1<<20 {
+		return provider.Credential{}, fmt.Errorf("WorkBuddy 续期响应读取失败或超过限制")
 	}
-	limited := io.LimitReader(resp.Body, 1<<20)
-	if err := json.NewDecoder(limited).Decode(&payload); err != nil {
-		return provider.Credential{}, newFailure(resp.StatusCode, providerFamily, "", "refresh response was not usable", err)
+	token, err := decodeRefreshResponse(raw, time.Now())
+	if err != nil {
+		return provider.Credential{}, err
 	}
-	cred.AccessToken = firstNonEmpty(payload.AccessToken, payload.AccessToken2)
-	if cred.AccessToken == "" {
-		return provider.Credential{}, newFailure(resp.StatusCode, providerFamily, "", "refresh response carried no access token", nil)
-	}
-	cred.ExpiresAt = firstNonZero(payload.ExpiresAt, payload.ExpiresAt2)
+	cred.AccessToken = token.AccessToken
+	// Persist rotated refresh tokens together with the new access token. An
+	// omitted refresh token means the existing one is still in use.
+	cred.RefreshToken = firstNonEmpty(token.RefreshToken, cred.RefreshToken)
+	cred.ExpiresAt = token.ExpiresAt
 	return cred.toProvider(req.AccountID), nil
 }
 

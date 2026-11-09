@@ -131,30 +131,9 @@ func (c *Client) PollLogin(ctx context.Context, accountID string, global bool) (
 		if err != nil || pending {
 			return Credential{}, false, err
 		}
-		token, err := DecodeCredential(data)
+		token, err := decodeTokenData(data, time.Now())
 		if err != nil {
 			return Credential{}, false, fmt.Errorf("WorkBuddy 令牌响应缺少有效登录态，请重新授权")
-		}
-		var expiry struct {
-			ExpiresIn      int64 `json:"expiresIn"`
-			ExpiresInSnake int64 `json:"expires_in"`
-			CreatedAt      int64 `json:"created_at"`
-		}
-		if json.Unmarshal(data, &expiry) != nil {
-			return Credential{}, false, fmt.Errorf("WorkBuddy 令牌有效期格式无效")
-		}
-		if token.ExpiresAt == 0 {
-			seconds := firstNonZero(expiry.ExpiresIn, expiry.ExpiresInSnake)
-			if seconds > 0 && seconds <= 366*24*60*60 {
-				created := expiry.CreatedAt
-				if created > 1e12 {
-					created /= 1000
-				}
-				if created <= 0 {
-					created = time.Now().Unix()
-				}
-				token.ExpiresAt = created + seconds
-			}
 		}
 		token.Domain = orDefault(token.Domain, domainFor(global))
 		progress.credential = token

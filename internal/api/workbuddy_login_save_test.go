@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -50,5 +51,25 @@ func TestWorkBuddyLoginSaveRetryKeepsExpiryAndCompletedStatus(t *testing.T) {
 	}
 	if _, err := s.store.GetCredential(ctx, a.ID); err != nil {
 		t.Fatal("saved credential lost")
+	}
+}
+
+func TestExpiredWorkBuddyPollReportsAlreadySavedLogin(t *testing.T) {
+	_, s := newTestServer(t, newStubProvider())
+	a := seedLogin(t, s, 2*workbuddy.LoginTimeout)
+	p, _ := s.getLogin(a.ID)
+	cred := workbuddy.Credential{AccessToken: "synthetic", UID: "user", Domain: "codebuddy.cn", ExpiresAt: time.Now().Add(time.Hour).Unix()}
+	if err := s.storeBrowserCredential(httptest.NewRequest(http.MethodGet, "/", nil), p, cred); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.store.SetAccountEnabled(t.Context(), a.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.SetPathValue("id", a.ID)
+	w := httptest.NewRecorder()
+	s.handleAccountLoginStatus(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"status":"done"`) {
+		t.Fatalf("completed login reported expired: %s", w.Body.String())
 	}
 }

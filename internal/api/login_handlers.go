@@ -176,6 +176,11 @@ func (s *Server) handleAccountLoginStatus(w http.ResponseWriter, r *http.Request
 		// makes this path likely rather than exotic -- on "expired" it stops
 		// polling and does NOT call cancel.
 		s.discardLogin(r.Context(), id)
+		// A completing poll may have saved the account while this request
+		// waited for the login lock. Do not show a false expiry after success.
+		if s.replyCompletedWorkBuddyLogin(w, r.Context(), id) {
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]any{"status": loginExpired})
 		return
 	}
