@@ -1,0 +1,78 @@
+{
+  "version": "personal-workbuddy-stability-20261109",
+  "commit": "30c4cbb",
+  "profile": "desktop-5.9.3",
+  "automated": {
+    "all_go_tests": true,
+    "go_vet": true,
+    "race_workbuddy_and_api": true
+  },
+  "real_refresh": {
+    "result": "refreshed",
+    "saved": true
+  },
+  "deployment": {
+    "healthy": true,
+    "account_ready": true,
+    "expiry_recorded": true
+  },
+  "live": {
+    "time": "2026-11-09T10:02:04.617Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1697,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1275,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1807,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 1607,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1783,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 120
+      }
+    ],
+    "model": "glm-5.2"
+  }
+}
