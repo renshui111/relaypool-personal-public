@@ -44,12 +44,11 @@ type Client struct {
 	http     *http.Client
 	streamer *http.Client
 
-	// catalog caches the per-credential model list, keyed by the credential's
-	// UID so two accounts on one client do not share entries. The catalogue
-	// changes rarely, so a short TTL is safe and removes a fetch from the hot
-	// path.
-	mu      sync.RWMutex
-	catalog map[string]catalogEntry
+	// catalog is scoped to the full authorization identity. Concurrent misses
+	// share one bounded upstream call; callers never receive mutable cache data.
+	mu             sync.RWMutex
+	catalog        map[string]catalogEntry
+	catalogPending map[string]*catalogCall
 }
 
 type catalogEntry struct {
@@ -178,14 +177,10 @@ func (c *Client) FetchCatalog(ctx context.Context, req provider.Credential) ([]p
 		return nil, fmt.Errorf("%w: workbuddy credential needs an access token and uid", provider.ErrNotReady)
 	}
 
-	key := catalogKey(cred)
-	if cached, ok := c.cachedCatalog(key); ok {
-		return cached, nil
-	}
+	return c.sharedCatalog(ctx, cred)
+}
 
-	ctx, cancel := context.WithTimeout(ctx, catalogTimeout)
-	defer cancel()
-
+func (c *Client) fetchCatalogHTTP(ctx context.Context, cred Credential) ([]provider.ModelInfo, error) {
 	endpoint := strings.TrimSuffix(cred.ChatBase(), "/") + cred.catalogPath()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
@@ -212,47 +207,12 @@ func (c *Client) FetchCatalog(ctx context.Context, req provider.Credential) ([]p
 	if err != nil {
 		return nil, newFailure(resp.StatusCode, providerFamily, "", "catalogue response was not usable", err)
 	}
-	c.storeCatalog(key, models)
 	return models, nil
 }
 
 // providerFamily is the kind hint used when a failure is not specific enough
 // for the classifier to name a different one.
 const providerFamily = ""
-
-// catalogKey scopes a catalogue cache entry to one account.
-func catalogKey(cred Credential) string {
-	if cred.UID != "" {
-		return Family + "|" + string(cred.Region()) + "|" + cred.UID
-	}
-	// Without a UID, fall back to the token's tail so two accounts do not
-	// collide. Using the whole token would put a secret in a map key where it
-	// could reach a log line.
-	token := cred.AccessToken
-	if len(token) > 12 {
-		token = token[len(token)-12:]
-	}
-	return Family + "|" + string(cred.Region()) + "|token:" + token
-}
-
-func (c *Client) cachedCatalog(key string) ([]provider.ModelInfo, bool) {
-	c.mu.RLock()
-	entry, ok := c.catalog[key]
-	c.mu.RUnlock()
-	if !ok || time.Since(entry.fetched) > catalogTTL {
-		return nil, false
-	}
-	return entry.models, true
-}
-
-func (c *Client) storeCatalog(key string, models []provider.ModelInfo) {
-	c.mu.Lock()
-	if c.catalog == nil {
-		c.catalog = map[string]catalogEntry{}
-	}
-	c.catalog[key] = catalogEntry{models: models, fetched: time.Now()}
-	c.mu.Unlock()
-}
 
 // InvalidateCatalog drops a cached catalogue so the next call refetches. Called
 // after a model-not-available error, since that is evidence the cache is stale.
@@ -264,6 +224,10 @@ func (c *Client) InvalidateCatalog(req provider.Credential) {
 	key := catalogKey(cred)
 	c.mu.Lock()
 	delete(c.catalog, key)
+	if call := c.catalogPending[key]; call != nil {
+		delete(c.catalogPending, key)
+		call.cancel()
+	}
 	c.mu.Unlock()
 }
 
