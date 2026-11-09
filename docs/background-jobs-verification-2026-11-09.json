@@ -1,0 +1,94 @@
+{
+  "version": "personal-scheduler-timeout-20261109",
+  "commit": "ac47699",
+  "automated": {
+    "go_test": true,
+    "go_vet": true,
+    "race_scheduler": true,
+    "race_api": {
+      "initial_run": "failed",
+      "initial_report": "Existing armor.BundledResearchFiles JSON decode path",
+      "focused_rerun": "passed",
+      "full_rerun_count": 2,
+      "full_rerun": "passed",
+      "root_cause": "unconfirmed; not reproduced and not claimed fixed"
+    },
+    "virtual_time": {
+      "catalog_timeout_seconds": 30,
+      "keepalive_timeout_seconds": 60,
+      "next_account_continues": true,
+      "previous_catalog_preserved": true,
+      "parent_cancellation_respected": true
+    }
+  },
+  "live": {
+    "time": "2026-11-09T11:31:24.83Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 2839,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 1740,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1774,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 1738,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1429,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 134
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "cancellation": {
+    "test": "client-aborts-live-stream",
+    "status": 200,
+    "received_content": true,
+    "inflight_released": true,
+    "done_before_abort": false,
+    "passed": true
+  },
+  "healthy": true,
+  "ready": true,
+  "deployment_note": "Local image includes pre-existing model directory filtering changes not included in this commit."
+}

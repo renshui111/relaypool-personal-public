@@ -11,7 +11,7 @@
 | 功能 | 说明 |
 | --- | --- |
 | 统一 API | Chat Completions、Responses、Anthropic Messages 和模型目录；流式／非流式回复 |
-| 多平台账号 | WorkBuddy、Qoder、Trae、Claude、Gemini、OpenAI、Codex，以及多种官方 API 和兼容服务 |
+| 多平台账号 | WorkBuddy、华为码道／果办、Qoder、Trae、Claude、Gemini、OpenAI、Codex，以及多种官方 API 和兼容服务 |
 | 账号池 | 轮询、加权轮询、优先填满；优先级、并发限制、会话绑定、失败换号和冷却熔断 |
 | 管理台 | 账号导入和授权、模型及额度查询、账号测试、请求日志和统计 |
 | 本机聊天 | 模型选择、流式回复、停止、重试、多会话及浏览器历史 |
