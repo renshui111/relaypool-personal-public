@@ -14,25 +14,23 @@ import (
 // then stops sending holds the connection and a goroutine open forever, and a
 // handful of those exhaust the pool.
 //
-// The shape is a reader that runs each Read on a goroutine and abandons it when
-// the deadline expires. The goroutine may outlive the call, but it is parked in
-// a read on a socket that gets closed when the stream is closed, so it is not a
-// leak in practice.
+// Reads use a private buffer because timeout/Close can return before the
+// underlying Read unwinds. Timeout closes the upstream immediately. As with
+// net/http response bodies, the underlying Close should unblock a pending Read.
 type idleTimeoutReader struct {
 	reader  io.ReadCloser
 	timeout time.Duration
-	// result carries one read's outcome back to the caller.
-	result chan readResult
+	// Serialize readers and reuse the private buffer only after a read finishes.
+	// Close never takes readMu, so it can interrupt a blocked read.
+	readMu sync.Mutex
+	buf    []byte
+	eof    bool
 	// closing is closed when the caller gives up, unblocking a pending read.
 	closing chan struct{}
 
-	// closeOnce makes Close idempotent AND thread-safe.
-	//
-	// A plain bool here is a data race: the caller's Close and the sanitizer
-	// goroutine's deferred Close can run concurrently, and a bare flag was read
-	// and written by both. sync.Once also guarantees the channel is closed
-	// exactly once, which a read-then-write flag does not.
+	// Both the notification and the underlying Close happen exactly once.
 	closeOnce sync.Once
+	closeErr  error
 }
 
 type readResult struct {
@@ -48,9 +46,6 @@ func newIdleTimeoutReader(reader io.ReadCloser, timeout time.Duration) io.ReadCl
 	return &idleTimeoutReader{
 		reader:  reader,
 		timeout: timeout,
-		// Buffered so the reader goroutine never blocks delivering its result
-		// after the caller has moved on.
-		result:  make(chan readResult, 1),
 		closing: make(chan struct{}),
 	}
 }
@@ -62,33 +57,55 @@ func WithIdleTimeout(reader io.ReadCloser, timeout time.Duration) io.ReadCloser 
 
 // Read performs one read, bounded by the idle timeout.
 func (r *idleTimeoutReader) Read(p []byte) (int, error) {
+	r.readMu.Lock()
+	defer r.readMu.Unlock()
+	select {
+	case <-r.closing:
+		return 0, io.EOF
+	default:
+	}
+	if r.eof {
+		return 0, io.EOF
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
 	// The goroutine needs its own buffer: the caller may reuse p after this
 	// call returns, and writing into it from an abandoned goroutine would be a
 	// data race.
-	buf := make([]byte, len(p))
+	if cap(r.buf) < len(p) {
+		r.buf = make([]byte, len(p))
+	}
+	buf := r.buf[:len(p)]
+	// A per-read buffered result prevents a late read from being delivered to
+	// a different caller, and cannot block if timeout/Close has already won.
+	result := make(chan readResult, 1)
 
 	go func() {
 		n, err := r.reader.Read(buf)
-		select {
-		case r.result <- readResult{n: n, err: err}:
-		case <-r.closing:
-			// The caller gave up; nobody is listening.
-		}
+		result <- readResult{n: n, err: err}
 	}()
 
 	timer := time.NewTimer(r.timeout)
 	defer timer.Stop()
 
 	select {
-	case res := <-r.result:
+	case res := <-result:
+		select {
+		case <-r.closing:
+			return 0, io.EOF
+		default:
+		}
 		if res.n > 0 {
 			copy(p, buf[:res.n])
 		}
+		if res.err == io.EOF {
+			r.eof = true
+		}
 		return res.n, res.err
 	case <-timer.C:
-		// Signal the pending read that its result is unwanted, then surface a
-		// timeout the caller can classify.
-		r.signalClosing()
+		// Release the socket without relying on an outer wrapper to call Close.
+		_ = r.Close()
 		return 0, &idleTimeoutError{timeout: r.timeout}
 	case <-r.closing:
 		return 0, io.EOF
@@ -97,24 +114,14 @@ func (r *idleTimeoutReader) Read(p []byte) (int, error) {
 
 // Close releases the underlying reader.
 //
-// It is safe to call concurrently and to call more than once: sync.Once makes
-// the channel close happen exactly once, which matters because both the client
-// (abandoning a stream) and the sanitizer goroutine (finishing normally) close
-// this reader.
+// Concurrent callers see the same Close result. The upstream body is closed
+// once even if timeout, caller cancellation and sanitizer cleanup coincide.
 func (r *idleTimeoutReader) Close() error {
-	r.signalClosing()
-	return r.reader.Close()
-}
-
-// signalClosing closes the closing channel exactly once.
-//
-// The earlier implementation used a plain bool read-then-write, which raced
-// when two goroutines closed concurrently: the race detector flagged it, and a
-// double close of a channel would have panicked.
-func (r *idleTimeoutReader) signalClosing() {
 	r.closeOnce.Do(func() {
 		close(r.closing)
+		r.closeErr = r.reader.Close()
 	})
+	return r.closeErr
 }
 
 // idleTimeoutError reports that a stream stalled.
