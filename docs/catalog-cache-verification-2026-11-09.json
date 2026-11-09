@@ -1,0 +1,118 @@
+{
+  "version": "personal-catalog-cache-20261109",
+  "commit": "f30de99",
+  "automated": {
+    "go_test": true,
+    "go_vet": true,
+    "race_workbuddy_api": true,
+    "controlled_concurrent_misses": 20,
+    "controlled_upstream_requests": 1
+  },
+  "live": {
+    "time": "2026-11-09T10:09:41.248Z",
+    "port": 8787,
+    "rows": [
+      {
+        "test": "catalog",
+        "account_index": 0,
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "test": "nonstream",
+        "status": 200,
+        "passed": true,
+        "ms": 1483,
+        "armor": "none"
+      },
+      {
+        "test": "stream",
+        "status": 200,
+        "passed": true,
+        "ms": 2124,
+        "armor": "none"
+      },
+      {
+        "test": "multiturn",
+        "status": 200,
+        "passed": true,
+        "ms": 1453,
+        "armor": "none"
+      },
+      {
+        "test": "tool-call",
+        "status": 200,
+        "passed": true,
+        "ms": 2171,
+        "armor": "none"
+      },
+      {
+        "test": "tool-result",
+        "status": 200,
+        "passed": true,
+        "ms": 1898,
+        "armor": "none"
+      },
+      {
+        "test": "quota",
+        "status": 200,
+        "state": "ok"
+      },
+      {
+        "test": "models",
+        "status": 200,
+        "count": 120
+      }
+    ],
+    "model": "glm-5.2"
+  },
+  "concurrent_api": {
+    "requests": 8,
+    "all_ok": true,
+    "rows": [
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      },
+      {
+        "status": 200,
+        "state": "ok",
+        "count": 38
+      }
+    ],
+    "note": "Concurrent API compatibility check; upstream request deduplication is measured separately by controlled tests."
+  },
+  "healthy": true
+}
