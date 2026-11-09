@@ -75,6 +75,10 @@ docker exec relaypool /app/relaypool -show-api-key
 | [API 文档](docs/API.md) | 鉴权、模型查询、三种协议、流式调用、错误与管理接口 |
 | [配置参考](docs/CONFIGURATION.md) | 环境变量、JSON 配置、默认值及 Compose 覆盖 |
 | [华为果办与码道](docs/HUAWEI.md) | 两个产品作为上游接入、浏览器授权、凭证区别和验证边界 |
+| [WorkBuddy 身份与登录](docs/WORKBUDDY-DESKTOP.md) | CLI／桌面端请求头配置、登录保存、续期、实测与回退 |
+| [模型目录缓存](docs/CATALOG-CACHE.md) | 并发查询合并、缓存隔离、失效与验证范围 |
+| [流式连接管理](docs/STREAM-LIFECYCLE.md) | 空闲超时、取消、连接关闭与真实验证 |
+| [后台任务与超时](docs/BACKGROUND-JOBS.md) | 目录刷新、登录态续期、签到时间、故障隔离与排查 |
 | [备份与维护](docs/OPERATIONS.md) | 数据位置、备份恢复、升级回滚、旧版迁移、故障排查 |
 | [开发指南](docs/DEVELOPMENT.md) | 结构、请求链路、前端构建、测试和发布 |
 | [安全说明](SECURITY.md) | 密钥和数据保护、问题反馈 |

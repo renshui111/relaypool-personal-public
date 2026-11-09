@@ -260,6 +260,10 @@ func (s *Scheduler) refreshCatalogs(ctx context.Context) {
 // scheduler, so a catalogue outage must never take a working account out of
 // rotation.
 func (s *Scheduler) refreshOneCatalog(ctx context.Context, account AccountRef) {
+	// Bound each account independently: one stalled upstream must not hold the
+	// entire sequential sweep. A shorter parent deadline still takes priority.
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	adapter, err := s.registry.Lookup(account.Provider)
 	if err != nil {
 		log.Printf("scheduler: catalog: %s: %v", account.ID, err)
@@ -274,6 +278,9 @@ func (s *Scheduler) refreshOneCatalog(ctx context.Context, account AccountRef) {
 	models, err := adapter.FetchCatalog(ctx, cred)
 	if err != nil {
 		log.Printf("scheduler: catalog for %s (%s): %v", account.ID, account.Provider, err)
+		return
+	}
+	if ctx.Err() != nil {
 		return
 	}
 	s.accounts.MergeCatalog(account.ID, models)
@@ -480,6 +487,8 @@ func (s *Scheduler) runKeepalive(ctx context.Context) {
 }
 
 func (s *Scheduler) keepaliveOne(ctx context.Context, account AccountRef) {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
 	adapter, err := s.registry.Lookup(account.Provider)
 	if err != nil {
 		return

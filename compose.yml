@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile
       args:
-        APP_VERSION: ${RELAYPOOL_VERSION:-personal-stream-lifecycle-20261109}
+        APP_VERSION: ${RELAYPOOL_VERSION:-personal-scheduler-timeout-20261109}
         APP_COMMIT: ${RELAYPOOL_COMMIT:-unknown}
     image: relaypool:personal
     container_name: relaypool

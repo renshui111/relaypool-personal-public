@@ -4,7 +4,7 @@
 
 启动顺序是默认值 → `-config` 指定的 JSON → 非空环境变量。部分设置还会在 SQLite 中持久化，例如账号、密钥权限和预设定制；它们不是修改 JSON 就会全部重置的临时配置。
 
-`compose.yml` 从 `.env` 引用运行时 `RELAYPOOL_PROXY_URL`，以及构建时 `RELAYPOOL_VERSION`、`RELAYPOOL_COMMIT`。把其他变量写入 `.env` 并不会自动注入服务：需在服务的 `environment` 中显式声明，或使用 JSON 配置文件。
+`compose.yml` 从 `.env` 引用运行时 `RELAYPOOL_PROXY_URL`、`RELAYPOOL_WORKBUDDY_IDENTITY`，以及构建时 `RELAYPOOL_VERSION`、`RELAYPOOL_COMMIT`。把其他变量写入 `.env` 并不会自动注入服务：需在服务的 `environment` 中显式声明，或使用 JSON 配置文件。
 
 参考文件：[`examples/config.example.json`](../examples/config.example.json)、[`examples/env.example`](../examples/env.example)。示例不包含真实凭证。
 
@@ -18,6 +18,7 @@
 | `RELAYPOOL_API_KEY` | 启动时登记初始管理密钥；默认自动生成，无需填写 |
 | `RELAYPOOL_CREDENTIAL_KEY` | 可选的 32 字节标准 Base64 加密密钥；未设置则从数据目录读取／生成 `credential.key` |
 | `RELAYPOOL_PROXY_URL` | 上游请求的出站代理；未指定时程序还检查常见 HTTP(S) 代理环境变量 |
+| `RELAYPOOL_WORKBUDDY_IDENTITY` | `cli`（默认）或 `desktop-5.9.3`；仅影响国内 WorkBuddy 聊天及目录的身份头，见[具体范围](WORKBUDDY-DESKTOP.md) |
 | `RELAYPOOL_ROUTING` | `round-robin`、`weighted-round-robin` 或 `fill-first` |
 | `RELAYPOOL_CROSS_PROVIDER_POOL` | 是否允许裸型号跨渠道选号；默认 `false` |
 | `RELAYPOOL_ARMOR_DIR` | 提示词预设目录，默认 `prompts` |
@@ -78,6 +79,7 @@ command: ["-config", "/app/config.local.json"]
 | `upstream.timeout` | `120s` | 非流式上游整次调用超时 |
 | `upstream.header_timeout` | `120s` | 流式响应头等待时间 |
 | `upstream.idle_timeout` | `300s` | 上游流分块间读取空闲超时 |
+| `upstream.workbuddy_identity` | `cli` | 国内 WorkBuddy 身份头；Compose 显式传入的同名环境选项优先于 JSON |
 | `schedule.catalog_refresh` | `30m` | 模型目录刷新间隔 |
 | `schedule.checkin_enabled` | `true` | 平台奖励调度开关，还受单账号设置及平台能力限制 |
 | `schedule.checkin_hours` | `[9,21]` | 计划运行小时，按运行环境时区 |
@@ -88,3 +90,5 @@ command: ["-config", "/app/config.local.json"]
 | `logging.retention_days` | `7` | 日志保留天数；0 关闭自动清理 |
 
 时间值推荐写带单位的字符串，例如 `"30m"`。调度时间需结合渠道自身的每日去重窗口；修改这些参数不会绕过上游资格或限流规则。
+
+后台单账号目录刷新最多等待 30 秒，登录态续期和签到各最多等待 60 秒。它们是调度器内部的任务期限，不是刷新间隔，也不是聊天超时；目前没有对应的 JSON 或环境变量开关。上游适配器自身的更短超时及父请求取消仍优先。详见[后台任务说明](BACKGROUND-JOBS.md)。

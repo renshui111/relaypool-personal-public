@@ -55,7 +55,7 @@ ports:
 RELAYPOOL_PROXY_URL=http://host.docker.internal:7890
 ```
 
-复制参考文件后自行修改：
+首次创建 `.env` 时可复制参考文件后自行修改。已有 `.env` 时直接编辑，避免覆盖当前代理和身份设置：
 
 ```console
 cp examples/env.example .env
@@ -71,7 +71,9 @@ Copy-Item examples/env.example .env
 
 Linux 若没有该主机名，可在 Compose 服务中配置 `extra_hosts: ["host.docker.internal:host-gateway"]`，并确认宿主机代理监听地址及防火墙允许容器访问。实际代理端口以自己的配置为准。
 
-`.env` 中的值只有被 Compose 显式引用才会传入构建或容器。当前文件引用 `RELAYPOOL_PROXY_URL`、`RELAYPOOL_VERSION` 与 `RELAYPOOL_COMMIT`；其他设置按[配置参考](CONFIGURATION.md)添加。
+`.env` 中的值只有被 Compose 显式引用才会传入构建或容器。当前文件引用 `RELAYPOOL_PROXY_URL`、`RELAYPOOL_WORKBUDDY_IDENTITY`、`RELAYPOOL_VERSION` 与 `RELAYPOOL_COMMIT`；其他设置按[配置参考](CONFIGURATION.md)添加。国内 WorkBuddy 可在 `.env` 设置 `RELAYPOOL_WORKBUDDY_IDENTITY=desktop-5.9.3`，具体支持范围见[身份配置说明](WORKBUDDY-DESKTOP.md)。
+
+示例不再固定旧版本号。通常保留版本和提交变量为注释，使用 Compose 默认版本；需要准确构建标识时，按[升级说明](OPERATIONS.md#升级)填写当前源码提交。
 
 ## 构建下载失败
 

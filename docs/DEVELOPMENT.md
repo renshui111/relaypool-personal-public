@@ -53,7 +53,9 @@ docker run --rm --mount "type=bind,source=${PWD},target=/src" -w /src golang:1.2
 docker run --rm --mount "type=bind,source=${PWD},target=/src" -w /src golang:1.26.9-bookworm go vet ./...
 ```
 
-这会在临时容器中下载依赖；频繁开发可另挂缓存卷。不要把正式数据卷挂给单元测试。需要检查共享运行状态时，可额外运行 `go test -race ./...`；该命令需要支持的工具链和平台，本轮文档更新未重新声称通过竞态测试。
+这会在临时容器中下载依赖；频繁开发可另挂缓存卷。不要把正式数据卷挂给单元测试。需要检查共享运行状态时，可额外运行 `go test -race ./...`；该命令需要支持的工具链和平台。每次发布的实际检查范围在对应验证记录中列出，不能把局部竞态检查当作全仓通过。
+
+后台任务超时回归使用标准库 `testing/synctest` 的虚拟时间，验证真实的 30／60 秒期限而无需等待同样长的现实时间。运行 `go test -race ./internal/scheduler` 可检查超时后继续下一账号、保留原目录、父级取消及凭证保存行为。
 
 ## 浏览器冒烟检查
 

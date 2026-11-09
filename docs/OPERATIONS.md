@@ -95,6 +95,16 @@ docker compose ps
 
 更新后核对 `/version`、`/readyz`、账号列表、密钥权限及一次短消息。浏览器仍显示旧页面时重新加载；只刷新浏览器不能替换旧镜像里的页面。
 
+如果 `.env` 仍填写旧的 `RELAYPOOL_VERSION`，它会覆盖 Compose 的新默认值，导致新版代码显示旧版本名。升级时删除不再需要的版本覆盖，或同步改成目标版本。需要记录源码提交时，在构建前设置（构建有未提交修改时，此提交号不能完整描述镜像内容）：
+
+```powershell
+$env:RELAYPOOL_COMMIT = git rev-parse --short HEAD
+docker compose build
+docker compose up -d --no-build
+```
+
+Linux Bash 使用 `RELAYPOOL_COMMIT="$(git rev-parse --short HEAD)" docker compose build`，然后重新创建容器。已运行镜像的实际标识可用 `docker exec relaypool /app/relaypool -version` 查看。
+
 ## 回滚
 
 代码和镜像回滚不一定能回滚数据库。先读更新记录；若数据库结构不兼容，使用升级前的完整备份恢复到新卷，再配套使用旧镜像。
@@ -132,6 +142,7 @@ docker compose up -d --no-build --force-recreate
 | 浏览器授权不回调 | 使用本机地址，检查端口；按页面回填完整地址或授权码，保留状态字段 |
 | 容器无法访问电脑上的代理 | 容器的 localhost 指向自己；检查 `host.docker.internal`、监听地址和防火墙 |
 | Token 或剩余额度未知 | 上游未提供完整数据；不是自动计为零，也不是本地计费失败 |
+| 某个账号目录一直旧、续期没有变化 | 看后台任务日志；目录单号 30 秒、续期单号 60 秒后取消并继续后续账号，失败保留旧数据，见[后台任务说明](BACKGROUND-JOBS.md) |
 | 清理后聊天历史不见 | 历史在浏览器，不在 Docker 卷；检查浏览器、地址和本地存储是否变化 |
 | 删除用户／支付／网络路径返回 404 | 自用版的预期行为，使用新的文档与客户端入口 |
 
