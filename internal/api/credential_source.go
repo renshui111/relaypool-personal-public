@@ -58,15 +58,9 @@ func (c credentialSource) loadCredential(parent context.Context, accountID strin
 	if err != nil {
 		return provider.Credential{}, err
 	}
-	cred.AccountID = accountID
-	if cred.Region != "" && string(cred.Region) != record.Region {
-		return provider.Credential{}, fmt.Errorf("凭证地区与账号配置不一致")
-	}
-	// Keep the raw blob: the adapter may re-decode it, and the executor uses
-	// Raw as the "is there anything here" signal.
-	cred.Raw = record.Payload
-	if cred.Provider == "" {
-		cred.Provider = record.Provider
+	cred, err = normalizeLoadedCredential(record, cred)
+	if err != nil {
+		return provider.Credential{}, err
 	}
 	needsRefresh := (cred.Provider == "claude" || cred.Provider == "gemini" || cred.Provider == "codex") && !cred.ExpiresAt.IsZero() && time.Until(cred.ExpiresAt) < time.Minute && cred.Field("refresh_token") != ""
 	if policy, ok := adapter.(provider.RefreshPolicy); ok {
@@ -75,11 +69,23 @@ func (c credentialSource) loadCredential(parent context.Context, accountID strin
 	if refresh && needsRefresh {
 		refreshCtx, stop := context.WithTimeout(parent, 30*time.Second)
 		defer stop()
+		// Refresh may reuse its input buffer; compare the original persisted
+		// bytes, not memory the adapter was allowed to modify.
+		previous := append([]byte(nil), record.Payload...)
 		updated, err := adapter.Refresh(refreshCtx, cred)
 		if err != nil {
 			return provider.Credential{}, err
 		}
-		saved, err := c.store.ReplaceCredentialIfUnchanged(refreshCtx, record.Payload, store.Credential{AccountID: accountID, Format: record.Format, Payload: updated.Raw, ExpiresAt: updated.ExpiresAt})
+		if len(updated.Raw) == 0 {
+			return provider.Credential{}, fmt.Errorf("续期结果为空，未更新凭证")
+		}
+		updatedRecord := record
+		updatedRecord.Payload = updated.Raw
+		updated, err = normalizeLoadedCredential(updatedRecord, updated)
+		if err != nil {
+			return provider.Credential{}, err
+		}
+		saved, err := c.store.ReplaceCredentialIfUnchanged(refreshCtx, previous, store.Credential{AccountID: accountID, Format: record.Format, Payload: updated.Raw, ExpiresAt: updated.ExpiresAt})
 		if err != nil {
 			return provider.Credential{}, err
 		}
@@ -94,11 +100,30 @@ func (c credentialSource) loadCredential(parent context.Context, accountID strin
 		if err != nil {
 			return provider.Credential{}, err
 		}
+		if latest.Provider != record.Provider || latest.Region != record.Region {
+			return provider.Credential{}, fmt.Errorf("账号渠道或地区已变化，请重新发起请求")
+		}
 		cred, err = adapter.DecodeCredential(latest.Payload)
 		if err != nil {
 			return provider.Credential{}, err
 		}
-		cred.AccountID = accountID
+		return normalizeLoadedCredential(latest, cred)
 	}
+	return cred, nil
+}
+
+// Apply the same identity checks after initial decode, refresh, and a reload
+// caused by concurrent credential replacement. Adapters need not fill Raw or
+// AccountID, but a conflicting provider or region must never be accepted.
+func normalizeLoadedCredential(record store.Credential, cred provider.Credential) (provider.Credential, error) {
+	if cred.Provider != "" && cred.Provider != record.Provider {
+		return provider.Credential{}, fmt.Errorf("凭证渠道与账号配置不一致")
+	}
+	if cred.Region != "" && string(cred.Region) != record.Region {
+		return provider.Credential{}, fmt.Errorf("凭证地区与账号配置不一致")
+	}
+	cred.AccountID = record.AccountID
+	cred.Provider = record.Provider
+	cred.Raw = record.Payload
 	return cred, nil
 }
