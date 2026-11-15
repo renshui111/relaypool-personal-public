@@ -37,6 +37,10 @@ func (c credentialSource) CredentialForContext(parent context.Context, accountID
 }
 
 func (c credentialSource) loadCredential(parent context.Context, accountID string, refresh bool) (provider.Credential, error) {
+	return c.loadCredentialWithPolicy(parent, accountID, refresh, false)
+}
+
+func (c credentialSource) loadCredentialWithPolicy(parent context.Context, accountID string, refresh, quota bool) (provider.Credential, error) {
 	if c.store == nil {
 		return provider.Credential{}, errString("no credential store configured")
 	}
@@ -65,6 +69,10 @@ func (c credentialSource) loadCredential(parent context.Context, accountID strin
 	needsRefresh := (cred.Provider == "claude" || cred.Provider == "gemini" || cred.Provider == "codex") && !cred.ExpiresAt.IsZero() && time.Until(cred.ExpiresAt) < time.Minute && cred.Field("refresh_token") != ""
 	if policy, ok := adapter.(provider.RefreshPolicy); ok {
 		needsRefresh = policy.NeedsRefresh(cred)
+	}
+	if quota {
+		policy, ok := adapter.(provider.QuotaRefreshPolicy)
+		needsRefresh = ok && policy.NeedsQuotaRefresh(cred)
 	}
 	if refresh && needsRefresh {
 		refreshCtx, stop := context.WithTimeout(parent, 30*time.Second)

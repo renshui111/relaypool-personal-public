@@ -73,6 +73,11 @@ func (e *Executor) ChatStream(ctx context.Context, req Request) (*Result, error)
 
 // 在每次选号后分别转换，故障换号不会继承上一个账号的提示清理结果。
 func chatForAccount(req Request, item pool.Item) *provider.ChatRequest {
+	if req.Chat != nil {
+		copy := *req.Chat
+		copy.Model = pool.NativeModelID(item, copy.Model)
+		req.Chat = &copy
+	}
 	if req.Chat == nil || !item.DropSystemPrompt || req.PreserveSystemPrompt {
 		return req.Chat
 	}

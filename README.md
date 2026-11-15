@@ -77,6 +77,7 @@ docker exec relaypool /app/relaypool -show-api-key
 | [华为果办与码道](docs/HUAWEI.md) | 两个产品作为上游接入、浏览器授权、凭证区别和验证边界 |
 | [WorkBuddy 身份与登录](docs/WORKBUDDY-DESKTOP.md) | CLI／桌面端请求头配置、登录保存、续期、实测与回退 |
 | [登录态续期保护](docs/CREDENTIAL-REFRESH.md) | 后台与请求续期、并发替换保护、凭证回读及渠道／地区校验 |
+| [统一型号与跨平台选号](docs/MODEL-UNIFICATION.md) | 型号合并、自动选择、平台原名和权限边界 |
 | [模型目录缓存](docs/CATALOG-CACHE.md) | 并发查询合并、缓存隔离、失效与验证范围 |
 | [流式连接管理](docs/STREAM-LIFECYCLE.md) | 空闲超时、取消、连接关闭与真实验证 |
 | [后台任务与超时](docs/BACKGROUND-JOBS.md) | 目录刷新、登录态续期、签到时间、故障隔离与排查 |

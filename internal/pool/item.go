@@ -12,6 +12,8 @@ package pool
 import (
 	"strings"
 	"time"
+
+	"github.com/relaypool/relaypool/internal/modelid"
 )
 
 // Routing strategies.
@@ -55,15 +57,27 @@ func NormalizeRegion(region string) string {
 	return region
 }
 
-// 模型名替换规则在所有请求之间复用。
-var modelIDReplacer = strings.NewReplacer("_", "-", " ", "-")
-
 // CanonicalModelID 统一目录匹配和冷却键使用的大小写及分隔符。
 func CanonicalModelID(model string) string {
-	key := strings.ToLower(strings.TrimSpace(model))
-	// 复用并发安全的替换器，避免每次模型匹配都重新分配匹配表。
-	key = modelIDReplacer.Replace(key)
-	return key
+	return modelid.Canonical(model)
+}
+
+// NativeModelID preserves the exact spelling advertised by the selected account.
+func NativeModelID(item Item, requested string) string {
+	for _, model := range item.Models {
+		if model == requested {
+			return model
+		}
+	}
+	want := CanonicalModelID(requested)
+	for _, models := range [][]string{item.Models, item.ProvenModels} {
+		for _, model := range models {
+			if CanonicalModelID(model) == want {
+				return model
+			}
+		}
+	}
+	return requested
 }
 
 // ModelInfo describes one model advertised by one account.

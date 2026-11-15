@@ -362,6 +362,10 @@ func (c *Client) NeedsCheckinRefresh(cred provider.Credential) bool {
 	return err == nil && !expires.IsZero() && time.Until(expires) < time.Minute && cred.Field("refresh_token") != "" && cred.Field("dpop_private_jwk") != ""
 }
 
+func (c *Client) NeedsQuotaRefresh(cred provider.Credential) bool {
+	return c.NeedsCheckinRefresh(cred)
+}
+
 func (c *Client) Refresh(ctx context.Context, cred provider.Credential) (provider.Credential, error) {
 	needsRefresh := c.NeedsRefresh(cred)
 	if c.family == OfficeAce {

@@ -433,7 +433,7 @@ func (s *Server) routes() {
 	// (e.g. /v1/chat/completions) all land here.
 	s.mux.Handle("GET /v1/key/permissions", s.auth(http.HandlerFunc(s.handleCurrentKeyPermissions)))
 	s.mux.Handle("PUT /v1/key/armor", s.auth(http.HandlerFunc(s.handleKeyArmor)))
-	s.mux.Handle("GET /v1/models", s.auth(http.HandlerFunc(s.handleModels)))
+	s.mux.Handle("GET /v1/models", s.auth(http.HandlerFunc(s.handleUnifiedModels)))
 	s.mux.Handle("POST /v1/chat/completions", s.auth(http.HandlerFunc(s.handleChatCompletions)))
 	s.mux.Handle("POST /v1/messages", s.auth(http.HandlerFunc(s.handleMessages)))
 	s.mux.Handle("POST /v1/responses", s.auth(http.HandlerFunc(s.handleResponses)))

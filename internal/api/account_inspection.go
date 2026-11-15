@@ -112,10 +112,11 @@ func (s *Server) handleAccountQuota(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	// 余额读取不主动轮换登录令牌，不改变人工停用状态。
-	cred, err := (credentialSource{store: s.store, registry: s.registry}).loadCredential(ctx, id, false)
+	// Only providers with a quota-specific policy renew expiring credentials.
+	// No health reset, account enablement, or reward claim is performed here.
+	cred, err := (credentialSource{store: s.store, registry: s.registry}).loadCredentialWithPolicy(ctx, id, true, true)
 	if err != nil {
-		writeJSON(w, http.StatusOK, provider.QuotaSnapshot{State: "error", Message: "无法读取该账号凭证，请检查配置"})
+		writeJSON(w, http.StatusOK, provider.QuotaSnapshot{State: "error", Message: "无法读取或续期积分登录态，请检查网络；持续失败时请重新进行浏览器授权"})
 		return
 	}
 	adapter, _ := s.registry.Lookup(account.Provider)

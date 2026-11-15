@@ -335,14 +335,14 @@ func TestModelsEndpointReportsPoolCatalog(t *testing.T) {
 	for _, entry := range payload.Data {
 		ids[entry.ID] = true
 	}
-	if !ids["glm-5.2"] {
-		t.Errorf("glm-5.2 missing from the catalogue: %+v", payload.Data)
+	if !ids["glm-5.2"] || !ids["deepseek-v4-pro"] {
+		t.Errorf("catalogue missing bare model ids: %+v", payload.Data)
 	}
-	if !ids["workbuddy/cn"] {
-		t.Errorf("provider alias missing from the catalogue: %+v", payload.Data)
+	if len(ids) != 2 || len(payload.Data) != 2 {
+		t.Errorf("catalogue should be deduplicated and sorted: %+v", payload.Data)
 	}
-	if !ids["workbuddy/glm-5.2"] || !ids["workbuddy/deepseek-v4-pro"] {
-		t.Error("模型目录缺少可明确选渠道的型号名称")
+	if ids["workbuddy/cn"] || ids["workbuddy/glm-5.2"] || ids["workbuddy/deepseek-v4-pro"] {
+		t.Errorf("single-provider catalogue should not repeat channel aliases: %+v", payload.Data)
 	}
 }
 

@@ -121,7 +121,7 @@ func (s *Server) handleKeyOptions(w http.ResponseWriter, r *http.Request) {
 	for _, a := range accounts {
 		data = append(data, map[string]any{"id": a.ID, "name": a.Name, "provider": a.Provider, "enabled": a.Enabled})
 	}
-	writeJSON(w, 200, map[string]any{"accounts": data, "models": s.modelCatalog(store.DefaultKeyPermissions())})
+	writeJSON(w, 200, map[string]any{"accounts": data, "models": s.unifiedModelCatalog(store.DefaultKeyPermissions())})
 }
 
 type keyWriteRequest struct {

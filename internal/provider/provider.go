@@ -334,6 +334,12 @@ type RefreshPolicy interface {
 	NeedsRefresh(Credential) bool
 }
 
+// QuotaRefreshPolicy separates billing credentials from inference credentials.
+// Only opted-in providers may renew credentials during a balance query.
+type QuotaRefreshPolicy interface {
+	NeedsQuotaRefresh(Credential) bool
+}
+
 // Failure is an error that carries a machine-readable failure kind.
 //
 // Adapters classify their own protocol errors because they know their own

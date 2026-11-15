@@ -62,7 +62,7 @@ command: ["-config", "/app/config.local.json"]
 | 配置项 | 默认值 | 含义 |
 | --- | --- | --- |
 | `routing` | `round-robin` | 路由策略 |
-| `cross_provider_pool` | `false` | 裸型号是否跨渠道 |
+| `cross_provider_pool` | `false` | 遗留字段，当前路由不读取；使用平台前缀或密钥权限限制渠道，见[统一型号](MODEL-UNIFICATION.md) |
 | `pool.max_attempts` | `4` | 一次请求最多尝试账号数；允许 1–8 |
 | `pool.max_inflight` | `4` | 未明确覆盖时的单账号并发上限；0 表示不限制 |
 | `pool.breaker_threshold` | `3` | 同类连续失败触发退避的阈值 |

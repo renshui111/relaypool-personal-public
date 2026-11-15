@@ -100,4 +100,12 @@ check('诊断失败清空旧结果并明确说明未读取',()=>{assert.equal(vm
 vm.current.model='model-a';vm.input='普通测试';
 api.stream=async(path,body,onEvent,signal,onHeaders)=>{onHeaders({get:key=>({'X-RelayPool-Armor-Applied':'fixture-preset','X-RelayPool-Armor-Status':'injected','X-RelayPool-Armor-SHA256':'a'.repeat(64),'X-RelayPool-Armor-Bytes':'123','X-Request-ID':'req_fixture'}[key]??null)});throw Error('模拟上游失败');};await vm.send();
 check('失败消息保留本次预设指纹和请求编号且不声称上游执行成功',()=>{const m=vm.current.messages.at(-1);assert.equal(m.armor_bytes,123);assert.equal(m.armor_sha256,'a'.repeat(64));assert.equal(m.request_id,'req_fixture');assert.ok(vm.armorExplanation(m).includes('上游执行未确认'));});
+vm.models=[{id:'glm-5.2',providers:['workbuddy','officeace'],variants:[{provider:'workbuddy',model:'GLM-5-2'},{provider:'officeace',model:'glm.5.2'}]}];
+vm.keyPolicy={all_models:false,models:['workbuddy/glm-5.2']};vm.current.account='';vm.current.model='glm-5.2';vm.modelQuery='officeace';
+check('统一型号可按平台搜索且显示跨平台提示和原名',()=>{assert.equal(vm.filteredModels.length,1);assert.ok(vm.modelLabel(vm.models[0]).includes('2 个平台'));assert.equal(vm.modelVariants.length,2);});
+check('统一名称权限匹配原始拼写但保留平台限制',()=>{assert.equal(vm.modelAllowed('GLM-5-2','workbuddy'),true);assert.equal(vm.modelAllowed('glm.5.2','officeace'),false);});
+vm.current.account='fixture';account.provider='workbuddy';account.models=['GLM-5-2'];
+check('固定账号仍能选中统一名称白名单对应的上游原名',()=>assert.equal(vm.availableModels[0].id,'GLM-5-2'));
+vm.keyPolicy=null;vm.current.account='';
+check('权限读取失败时统一型号仍不可选',()=>assert.equal(vm.availableModels.length,0));
 console.log(JSON.stringify({passed:true,checks:checked,real_upstream_called:false}));

@@ -29,7 +29,7 @@ curl --fail-with-body http://127.0.0.1:8787/v1/models \
   -H "Authorization: Bearer $RELAYPOOL_KEY"
 ```
 
-返回形如 `{"object":"list","data":[{"id":"实际模型ID","object":"model","owned_by":"渠道"}]}`。目录可能同时出现裸型号、带渠道前缀的型号和区域别名；优先选择返回的具体型号。`workbuddy/实际模型ID` 会固定渠道；裸型号的跨渠道行为由配置决定，默认关闭跨渠道号池。白名单受限时，不保证能使用自动选型／区域别名。
+默认返回统一型号，并附带 `providers` 与 `variants`（平台、原始型号、限定平台 ID）。裸型号自动在有权使用的同型号账号间选择；`workbuddy/实际模型ID` 固定渠道。旧式目录可用 `/v1/models?view=legacy` 查询。规则、示例和兼容说明见[统一型号与跨平台选号](MODEL-UNIFICATION.md)。
 
 目录为空时检查账号是否启用、是否有模型目录，以及当前密钥的账号和模型权限，不要直接使用本文中的占位符发送请求。
 
