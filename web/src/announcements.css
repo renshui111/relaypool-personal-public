@@ -14,4 +14,16 @@
 .announcement-footer { position:sticky; bottom:0; display:flex; gap:16px; align-items:center; justify-content:space-between; padding:20px 32px 24px; background:var(--panel); border-top:1px solid var(--border); margin-top:16px; }
 .announcement-footer small { max-width:250px; color:var(--text-dim); font-size:12px; line-height:1.7; }
 .announcement-footer .btn { flex-shrink:0; }
+.announcement-history-link { margin-top:16px; }
+.announcement-history { margin-top:32px; padding-bottom:8px; }
+.announcement-history > h3 { margin:0 0 8px; font-size:20px; line-height:1.5; scroll-margin-top:24px; }
+.announcement-history-hint { margin:0 0 16px; font-size:12px; line-height:1.7; color:var(--text-dim); }
+.announcement-history-entry { border-top:1px solid var(--border); }
+.announcement-history-entry summary { cursor:pointer; padding:16px 0; overflow-wrap:anywhere; }
+.announcement-history-entry summary .announcement-meta { display:inline-flex; margin-left:8px; }
+.announcement-history-entry summary strong { display:block; margin-top:8px; font-size:16px; line-height:1.6; font-weight:600; }
+.announcement-history-entry summary:focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+.announcement-history-content { padding-bottom:16px; }
+.announcement-history-content .announcement-changes { margin-top:8px; }
+.announcement-history-content h4 { margin:0 0 8px; font-size:14px; line-height:1.6; }
 @media(max-width:600px) { .announcement-header { padding:24px 20px 0; }.announcement-body { padding:0 20px; }.release-announcement h2 { font-size:24px; }.announcement-footer { padding:16px 20px 20px; flex-direction:column-reverse; align-items:stretch; }.announcement-footer .btn { justify-content:center; }.announcement-footer small { max-width:none; text-align:center; } }

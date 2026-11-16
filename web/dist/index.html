@@ -1018,8 +1018,21 @@
 
   <dialog id="release-announcement" class="release-announcement" aria-labelledby="announcement-title" aria-describedby="announcement-summary" @close="announcements.onClosed()">
     <header class="announcement-header"><div class="announcement-meta"><strong>更新公告</strong><span v-if="announcements.data.release">{{ announcements.data.release }}</span><time v-if="announcements.data.published_on" :datetime="announcements.data.published_on">{{ announcements.data.published_on }}</time></div><h2 id="announcement-title">{{ announcements.data.title }}</h2><p id="announcement-summary" class="announcement-summary">{{ announcements.data.summary }}</p></header>
-    <div class="announcement-body" aria-live="polite" :aria-busy="announcements.loading"><p v-if="announcements.loading" class="announcement-loading">正在读取当前版本的更新内容…</p><div v-if="announcements.error" class="note error" role="alert">{{ announcements.error }} <button class="btn small" @click="announcements.show()">重新读取</button></div><ul class="announcement-changes"><li v-for="(change,i) in announcements.data.changes" :key="i"><h3>{{ change.title }}</h3><p>{{ change.description }}</p></li></ul></div>
-    <footer class="announcement-footer"><small>每次打开时显示，顶部可随时查看。</small><button class="btn primary" data-announcement-dismiss @click="announcements.close()">知道了，进入工作台</button></footer>
+    <div class="announcement-body" aria-live="polite" :aria-busy="announcements.loading">
+      <p v-if="announcements.loading" class="announcement-loading">正在读取更新公告…</p>
+      <div v-if="announcements.error" class="note error" role="alert">{{ announcements.error }} <button class="btn small" @click="announcements.show()">重新读取</button></div>
+      <button v-if="announcements.data.history.length" class="btn small announcement-history-link" @click="announcements.showHistory()">查看历史公告 · {{ announcements.data.history.length }}</button>
+      <ul class="announcement-changes"><li v-for="(change,i) in announcements.data.changes" :key="i"><h3>{{ change.title }}</h3><p>{{ change.description }}</p></li></ul>
+      <section v-if="announcements.data.history.length" class="announcement-history" aria-labelledby="announcement-history-title">
+        <h3 id="announcement-history-title" tabindex="-1">历史公告</h3>
+        <p class="announcement-history-hint">按版本由新到旧排列，展开查看完整内容。</p>
+        <details v-for="release in announcements.data.history" :key="release.release" class="announcement-history-entry">
+          <summary><span class="announcement-meta"><span>{{ release.release }}</span><time :datetime="release.published_on">{{ release.published_on }}</time></span><strong>{{ release.title }}</strong></summary>
+          <div class="announcement-history-content"><p class="announcement-summary">{{ release.summary }}</p><ul class="announcement-changes"><li v-for="(change,i) in release.changes" :key="i"><h4>{{ change.title }}</h4><p>{{ change.description }}</p></li></ul></div>
+        </details>
+      </section>
+    </div>
+    <footer class="announcement-footer"><small>每次打开显示最新公告，以往内容可在历史公告中查看。</small><button class="btn primary" data-announcement-dismiss @click="announcements.close()">知道了，进入工作台</button></footer>
   </dialog>
 
   <!-- ======================= 全局弹层 ======================= -->
