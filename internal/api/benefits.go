@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -66,6 +67,7 @@ func benefitSearchQuery(q url.Values) (url.Values, error) {
 			if err != nil || n < 0 || n > 10000 {
 				return nil, errors.New("页码无效")
 			}
+			v = strconv.Itoa(n)
 		default:
 			return nil, errors.New("不支持的查询参数")
 		}
@@ -164,12 +166,32 @@ func (f *benefitFeed) fetch(ctx context.Context, path string) (benefitCacheEntry
 	if err != nil || len(body) > 1<<20 {
 		return benefitCacheEntry{}, errors.New("catalogue response too large")
 	}
-	var data map[string]json.RawMessage
+	// Validate the shape used by the requested view before caching it. A 200
+	// response containing null, the other endpoint's payload, or the wrong
+	// detail must not replace a usable snapshot for the next 15 minutes.
+	type offerIdentity struct {
+		ID string `json:"id"`
+	}
+	var data struct {
+		Offers []*offerIdentity `json:"offers"`
+		Offer  *offerIdentity   `json:"offer"`
+	}
 	if json.Unmarshal(body, &data) != nil {
 		return benefitCacheEntry{}, errors.New("invalid catalogue response")
 	}
-	if len(data["offers"]) == 0 && len(data["offer"]) == 0 {
-		return benefitCacheEntry{}, errors.New("missing catalogue data")
+	if id, detail := strings.CutPrefix(path, "/api/agent/offers/"); detail {
+		if data.Offer == nil || data.Offer.ID != id {
+			return benefitCacheEntry{}, errors.New("invalid catalogue detail")
+		}
+	} else {
+		if data.Offers == nil {
+			return benefitCacheEntry{}, errors.New("missing catalogue data")
+		}
+		for _, offer := range data.Offers {
+			if offer == nil || strings.TrimSpace(offer.ID) == "" {
+				return benefitCacheEntry{}, errors.New("invalid catalogue offer")
+			}
+		}
 	}
 	return benefitCacheEntry{body: body, at: time.Now().UTC()}, nil
 }

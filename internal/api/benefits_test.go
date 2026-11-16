@@ -230,3 +230,55 @@ func TestBenefitsRejectsInvalidAndOversizeResponses(t *testing.T) {
 		}
 	}
 }
+
+func TestBenefitsValidatesResponseBeforeCaching(t *testing.T) {
+	for _, tc := range []struct{ path, invalid, valid string }{
+		{"/api/agent/search", `{"offers":null}`, `{"offers":[]}`},
+		{"/api/agent/search", `{"offers":{}}`, `{"offers":[]}`},
+		{"/api/agent/search", `{"offer":{"id":"a"}}`, `{"offers":[]}`},
+		{"/api/agent/search", `{"offers":[null]}`, `{"offers":[]}`},
+		{"/api/agent/search", `{"offers":[{"title":"missing id"}]}`, `{"offers":[]}`},
+		{"/api/agent/offers/a", `{"offer":null}`, `{"offer":{"id":"a"}}`},
+		{"/api/agent/offers/a", `{"offer":[]}`, `{"offer":{"id":"a"}}`},
+		{"/api/agent/offers/a", `{"offer":{"id":"b"}}`, `{"offer":{"id":"a"}}`},
+	} {
+		t.Run(tc.invalid+tc.path, func(t *testing.T) {
+			calls := 0
+			f := benefitFeed{client: &http.Client{Transport: benefitTransport(func(*http.Request) (*http.Response, error) {
+				calls++
+				if calls == 1 {
+					return benefitResponse(tc.invalid), nil
+				}
+				return benefitResponse(tc.valid), nil
+			})}}
+			if _, _, err := f.read(t.Context(), tc.path); err == nil {
+				t.Fatal("malformed response accepted")
+			}
+			if _, stale, err := f.read(t.Context(), tc.path); err != nil || stale || calls != 2 {
+				t.Fatalf("bad response poisoned cache: calls=%d stale=%v err=%v", calls, stale, err)
+			}
+			// Invalid refreshes must preserve and label the last valid snapshot.
+			old := f.cache[tc.path]
+			old.at = time.Now().Add(-time.Hour)
+			f.cache[tc.path] = old
+			calls = 0
+			entry, stale, err := f.read(t.Context(), tc.path)
+			if err != nil || !stale || string(entry.body) != tc.valid || !entry.at.Equal(old.at) {
+				t.Fatalf("valid snapshot lost: stale=%v err=%v", stale, err)
+			}
+		})
+	}
+}
+
+func TestBenefitsEquivalentQueriesShareCacheKey(t *testing.T) {
+	want, err := benefitSearchQuery(url.Values{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, offset := range []string{"0", "00", "+0", "-0"} {
+		got, err := benefitSearchQuery(url.Values{"offset": {offset}, "q": {""}, "modality": {""}, "status": {"all"}})
+		if err != nil || got.Encode() != want.Encode() {
+			t.Errorf("offset %q: got %v, want %v: %v", offset, got, want, err)
+		}
+	}
+}
