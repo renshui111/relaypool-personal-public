@@ -2,6 +2,8 @@
 
 本项目自有代码按根目录 `LICENSE` 中的 MIT 许可证准备公开发行。第三方代码和资料保留各自许可；根目录 MIT 不重新授权第三方内容，也不代表上游平台授予账号、额度或接口使用权限。
 
+福利中心在线查询 [AI 羊毛牧场](https://github.com/accesaver-byte/ai-yangmao) 的公开只读信息，保留来源、核验时间及官方链接。不复制其代码，不将第三方条目或厂商权益重新授权为本项目内容。接口能力与集成边界见 `docs/BENEFITS.md`。
+
 - Qoder、Trae 协议适配的固定来源、署名与许可见 `internal/provider/subscriptions/NOTICE.md` 和同目录的三个 `LICENSE-*.txt`。
 - 控制台的 petite-vue 与 Day.js 使用其原始 MIT 许可证，全文及下载记录在 `licenses/web/`。
 - 华为码道与果办协议研究的项目来源、固定提交和修改说明见 `internal/provider/huawei/NOTICE.md`；Apache-2.0 与 MIT 参考许可全文见 `licenses/huawei/`，不由根目录 MIT 重新授权。

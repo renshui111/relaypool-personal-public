@@ -109,7 +109,8 @@ func (a *SessionAffinity) Get(key string) (string, bool) {
 		return "", false
 	}
 	binding, _ := element.Value.(sessionBinding)
-	if !binding.expiresAt.After(time.Now()) {
+	now := time.Now()
+	if !binding.expiresAt.After(now) {
 		// Expired entries are removed on access so a stale binding cannot
 		// pin traffic to an account forever.
 		a.removeLocked(element)
@@ -118,6 +119,8 @@ func (a *SessionAffinity) Get(key string) (string, bool) {
 		return "", false
 	}
 	a.hits++
+	binding.expiresAt = now.Add(a.ttl)
+	element.Value = binding
 	a.lru.MoveToFront(element)
 	return binding.accountID, true
 }
@@ -222,9 +225,8 @@ func (a *SessionAffinity) Prune() int {
 
 	now := time.Now()
 	removed := 0
-	// Walk from the back: entries are ordered by insertion, and the oldest are
-	// the likely candidates. Stop early once a live entry is found, since
-	// anything newer is also live.
+	// Both Bind and Get renew the TTL when moving an entry to the front.
+	// Expiration therefore follows LRU order, so stop at the first live entry.
 	for element := a.lru.Back(); element != nil; {
 		binding, _ := element.Value.(sessionBinding)
 		previous := element.Prev()

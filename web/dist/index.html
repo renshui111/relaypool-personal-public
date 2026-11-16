@@ -9,6 +9,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f6bed'/%3E%3Ctext x='16' y='22' font-size='17' font-family='Segoe UI,sans-serif' font-weight='700' text-anchor='middle' fill='white'%3ER%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="app.css">
 <link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="workspace.css"><link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="benefits.css">
+<link rel="stylesheet" href="announcements.css">
 </head>
 <body>
 <div id="app" v-cloak>
@@ -70,6 +72,7 @@
           <a href="#/overview" :class="{active: route==='overview'}" :aria-current="route==='overview' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>概览</span><span class="nav-active-mark" aria-hidden="true"></span></a>
           <a href="#/chat" :class="{active: route==='chat'}" :aria-current="route==='chat' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 10 10 0 0 1-4-.8L3 21l1.7-5A8.4 8.4 0 0 1 3 11.5a9 9 0 0 1 18 0Z"/><path d="M8 11h8M8 7.5h5"/></svg><span>聊天</span><span class="nav-active-mark" aria-hidden="true"></span></a>
           <a href="#/accounts" :class="{active: route==='accounts' || route==='account'}" :aria-current="route==='accounts' || route==='account' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M5.5 16a3.5 3.5 0 0 1 7 0M15 9h3M15 13h3"/></svg><span>账号池</span><span class="nav-active-mark" aria-hidden="true"></span></a>
+          <a href="#/benefits" :class="{active: route==='benefits'}" :aria-current="route==='benefits' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11h16v10H4zM3 7h18v4H3zM12 7v14"/><path d="M12 7H8a3 3 0 1 1 3-3l1 3Zm0 0h4a3 3 0 1 0-3-3l-1 3Z"/></svg><span>福利中心</span><span class="nav-active-mark" aria-hidden="true"></span></a>
           <div class="nav-label">管理与监控</div>
           <a href="#/keys" :class="{active: route==='keys'}" :aria-current="route==='keys' ? 'page' : null"><svg class="icon nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="5"/><path d="m11.5 12.5 8 8 2-2-2-2 1.5-1.5-2-2-1.5 1.5-3-3"/></svg><span>API 密钥</span><span class="nav-active-mark" aria-hidden="true"></span></a>
           
@@ -83,7 +86,61 @@
       </aside>
 
       <!-- 主区 -->
-      <main class="main" id="main-content" tabindex="-1" :class="{'main-chat':route==='chat'}"><header class="workspace-bar"><div class="workspace-identity"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg><span>工作空间</span><span class="breadcrumb">/</span><b>{{ pageTitle }}</b></div><div class="workspace-tools"><span class="workspace-badge" :class="{'is-warning':!!conn.connError}"><span class="status-dot"></span>{{ conn.connError ? '连接异常' : conn.accessBadge ? conn.accessBadge.label : '管理控制台' }}</span><a class="profile-button" href="#/settings" aria-label="打开连接设置"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="3" fill="currentColor" stroke="none"/></svg></a></div></header>
+      <main class="main" id="main-content" tabindex="-1" :class="{'main-chat':route==='chat'}"><header class="workspace-bar"><div class="workspace-identity"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5ZM2 12l10 5 10-5M2 16l10 5 10-5"/></svg><span>工作空间</span><span class="breadcrumb">/</span><b>{{ pageTitle }}</b></div><div class="workspace-tools"><button class="btn small" @click="announcements.show()">更新公告</button><span class="workspace-badge" :class="{'is-warning':!!conn.connError}"><span class="status-dot"></span>{{ conn.connError ? '连接异常' : conn.accessBadge ? conn.accessBadge.label : '管理控制台' }}</span><a class="profile-button" href="#/settings" aria-label="打开连接设置"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="3" fill="currentColor" stroke="none"/></svg></a></div></header>
+
+        <div v-if="route==='benefits' && benefits" class="route benefits-page">
+          <div class="page-head benefits-heading"><div class="page-heading"><h1>福利中心</h1><p class="desc">找到可领取的模型额度与应用权益，把已接入账号的奖励集中管理。</p></div><span class="spacer"></span><a href="#/accounts" class="btn">接入账号</a></div>
+          <div class="benefits-tabs" role="group" aria-label="福利分类">
+            <button class="benefits-tab" :class="{active:benefits.tab==='discover'}" :aria-pressed="benefits.tab==='discover'" @click="benefits.tab='discover'">发现福利</button>
+            <button class="benefits-tab" :class="{active:benefits.tab==='mine'}" :aria-pressed="benefits.tab==='mine'" @click="benefits.tab='mine'">我的领取 <small>{{ benefits.accountsLoaded ? benefits.claimAccounts.length : '—' }}</small></button>
+          </div>
+          <div v-if="benefits.tab==='discover'">
+            <form class="benefits-toolbar" @submit.prevent="benefits.loadOffers()">
+              <label class="benefits-search" for="benefits-search">搜索平台或福利<input id="benefits-search" v-model="benefits.query" maxlength="120" placeholder="例如：WorkBuddy、免费 API、新人额度"></label>
+              <label for="benefits-modality">用途<select id="benefits-modality" v-model="benefits.modality"><option value="">全部用途</option><option value="text">文本模型</option><option value="code">编程工具</option><option value="image">图像生成</option><option value="video">视频生成</option><option value="audio">语音与音频</option></select></label>
+              <label for="benefits-status">活动状态<select id="benefits-status" v-model="benefits.status"><option value="all">全部（含待核实）</option><option value="claimable">来源标注可领取</option><option value="stale">待重新核实</option></select></label>
+              <button class="btn primary" type="submit" :disabled="benefits.feedLoading">{{ benefits.feedLoading ? '查询中…' : '查询福利' }}</button><button class="btn" type="button" :disabled="benefits.feedLoading" @click="benefits.resetFilters()">重置</button>
+            </form>
+            <div class="benefits-source"><a href="https://github.com/accesaver-byte/ai-yangmao" target="_blank" rel="noopener noreferrer">来源：AI 羊毛牧场 ↗</a><span v-if="benefits.feed">读取于 {{ $fmt.timeFull(benefits.feed.fetched_at) }}</span><span v-if="benefits.feedLoaded">{{ benefits.total }} 条匹配信息</span><span>最多每 15 分钟同步一次</span></div>
+            <p class="note warn">{{ benefits.feedWarning }}</p>
+            <div v-if="benefits.feedError" class="note error" role="alert">{{ benefits.feedError }} {{ benefits.offers.length ? '下方保留上次查询结果。' : '' }}<button class="btn small" :disabled="benefits.feedLoading" @click="benefits.loadOffers()">重试查询</button></div>
+            <section v-if="benefits.detailID" class="benefits-detail" aria-label="福利领取详情" aria-live="polite">
+              <div class="benefits-detail-head"><h2>{{ benefits.detail ? benefits.detailView.title : '领取详情' }}</h2><button class="btn small" @click="benefits.closeDetail()">收起详情</button></div>
+              <p v-if="benefits.detailLoading">正在读取领取步骤与官方出处…</p><p v-if="benefits.detailError" class="note error" role="alert">{{ benefits.detailError }}</p>
+              <div v-if="benefits.detail">
+                <span class="benefit-status" :class="{warning:benefits.detailView.status==='stale'}">{{ benefits.detailView.statusLabel }}</span>
+                <p v-if="benefits.detailStale" class="note warn">此详情来自缓存或来源快照，请先核对官方页面。</p>
+                <p>{{ benefits.detailView.valueText }}</p>
+                <dl><dt>领取条件</dt><dd>{{ benefits.detailView.requirements.join('、') || '尚未说明' }}</dd><dt>领取截止</dt><dd>{{ benefits.detailView.claimEnd || '官方未明确' }}{{ benefits.detailView.claimEnd && benefits.detailView.sourceTz ? '（'+benefits.detailView.sourceTz+'）' : '' }}</dd><dt>到账有效期</dt><dd>{{ benefits.detailView.creditValidity || '以官方说明或到账记录为准' }}</dd><dt>最近核验</dt><dd>{{ $fmt.timeFull(benefits.detailView.lastVerifiedAt) }}</dd></dl>
+                <p v-for="reason in benefits.detailView.eligibilityNotes" :key="reason">{{ reason }}</p>
+                <h3>怎么领</h3><ol v-if="benefits.detailView.steps.length"><li v-for="(step,i) in benefits.detailView.steps" :key="i">{{ step }}</li></ol><p v-else>来源暂未提供具体步骤，请前往官方页面查看。</p>
+                <div class="benefits-detail-footer"><a v-if="benefits.detailView.officialURL" :href="benefits.detailView.officialURL" target="_blank" rel="noopener noreferrer" class="btn primary">查看官方领取说明 ↗</a><a v-if="benefits.detailView.link" :href="benefits.detailView.link" target="_blank" rel="noopener noreferrer" class="btn">查看来源详情 ↗</a><span class="dim">第三方活动需在平台完成领取，打开链接不代表已领取。</span></div>
+              </div>
+            </section>
+            <div v-if="benefits.feedLoading && !benefits.offers.length" class="benefits-empty" role="status"><h2>正在查找福利</h2><p>已接入账号的奖励可以先到“我的领取”查看。</p></div>
+            <div v-if="!benefits.feedLoading && benefits.feedLoaded && !benefits.offers.length && !benefits.feedError" class="benefits-empty"><h2>没有匹配的福利</h2><p>尝试更换平台名，或将活动状态改为“全部（含待核实）”。</p><button class="btn" @click="benefits.resetFilters()">查看全部信息</button></div>
+            <div class="benefits-list" :aria-busy="benefits.feedLoading">
+              <article class="benefit-row" v-for="offer in benefits.offers" :key="offer.id">
+                <div class="benefit-platform">{{ offer.platform }}<small>{{ offer.typeLabel }}</small></div>
+                <div class="benefit-content"><h2>{{ offer.title }}</h2><p>{{ offer.valueText }}</p><div class="benefit-meta"><span class="benefit-status" :class="{warning:offer.status==='stale'}">{{ offer.statusLabel }}</span><span>条件：{{ offer.requirements.join('、') || '查看详情' }}</span><span>核验：{{ $fmt.timeFull(offer.lastVerifiedAt) }}</span></div></div>
+                <div class="benefit-actions"><button class="btn" @click="benefits.showDetail(offer)">查看怎么领</button><small>{{ offer.claimEnd ? '截止 '+offer.claimEnd : '截止时间未明确' }}</small></div>
+              </article>
+            </div>
+            <div v-if="benefits.feedLoaded" class="benefits-pagination"><span>{{ benefits.offers.length ? (benefits.offset+1)+'–'+(benefits.offset+benefits.offers.length) : '0' }} / {{ benefits.total }}</span><button class="btn small" :disabled="benefits.feedLoading || !benefits.previousOffsets.length" @click="benefits.previous()">上一页</button><button class="btn small" :disabled="benefits.feedLoading || benefits.nextOffset===null" @click="benefits.next()">下一页</button></div>
+          </div>
+          <div v-if="benefits.tab==='mine'">
+            <section class="benefits-claim-intro"><div><h2>已接入账号，直接领取</h2><p>支持 WorkBuddy、Qoder、TRAE 国内版与华为渠道。领取资格和到账数量由平台确认。</p><p v-if="benefits.accountsLoaded">{{ benefits.claimAccounts.length }} 个账号支持领取 · {{ benefits.completedCount }} 个本周期已领取</p></div><button class="btn" :disabled="benefits.accountsLoading" @click="benefits.loadAccounts()">{{ benefits.accountsLoading ? '刷新中…' : '刷新领取状态' }}</button></section>
+            <div v-if="benefits.accountsError" class="note error" role="alert">{{ benefits.accountsError }}。刷新成功前暂停领取。</div>
+            <div v-if="benefits.accountsLoaded && !benefits.claimAccounts.length" class="benefits-empty"><h2>先接入一个支持领取的账号</h2><p>在账号池完成登录授权，支持的每日或活动奖励会自动出现在这里。</p><a href="#/accounts" class="btn primary">前往账号池</a></div>
+            <div class="benefits-list">
+              <article class="benefit-row" v-for="acc in benefits.claimAccounts" :key="acc.id">
+                <div class="benefit-platform">{{ benefits.platform(acc) }}<small>{{ acc.region==='global' ? '国际渠道' : '国内渠道' }}</small></div>
+                <div class="benefit-content"><h2>{{ acc.name || acc.id }} · {{ acc.checkin.label }}</h2><p>{{ acc.checkin.note }}</p><div class="benefit-meta"><span class="benefit-status">{{ benefits.accountState(acc) }}</span><span>{{ acc.auto_checkin ? '后台自动领取已开启' : '当前为手动领取' }}</span><span v-if="acc.last_checkin_at">最近尝试：{{ $fmt.timeFull(acc.last_checkin_at) }}</span></div><p v-if="acc.last_checkin_msg && !benefits.results[acc.id]" class="mt8">{{ acc.last_checkin_msg }}</p><div v-if="benefits.results[acc.id]" class="benefit-result" :class="benefits.result(acc).status" role="status"><b>{{ benefits.resultLabel(acc) }}</b>{{ benefits.result(acc).message }}</div></div>
+                <div class="benefit-actions"><button class="btn primary" :disabled="!benefits.canClaim(acc)" @click="benefits.claim(acc)">{{ benefits.busy[acc.id] ? '正在领取…' : benefits.isCompleted(acc) ? '本周期已领' : '一键领取' }}</button><a class="btn link small" :href="'#/account/'+encodeURIComponent(acc.id)">账号与额度 →</a></div>
+              </article>
+            </div>
+          </div>
+        </div>
 
         <!-- 概览按当前状态、调用统计、排查入口组织，所有数字均来自实际数据。 -->
         <div v-if="route==='overview' && overview" class="route overview-page">
@@ -959,6 +1016,12 @@
       </main>
     </div>
 
+  <dialog id="release-announcement" class="release-announcement" aria-labelledby="announcement-title" aria-describedby="announcement-summary" @close="announcements.onClosed()">
+    <header class="announcement-header"><div class="announcement-meta"><strong>更新公告</strong><span v-if="announcements.data.release">{{ announcements.data.release }}</span><time v-if="announcements.data.published_on" :datetime="announcements.data.published_on">{{ announcements.data.published_on }}</time></div><h2 id="announcement-title">{{ announcements.data.title }}</h2><p id="announcement-summary" class="announcement-summary">{{ announcements.data.summary }}</p></header>
+    <div class="announcement-body" aria-live="polite" :aria-busy="announcements.loading"><p v-if="announcements.loading" class="announcement-loading">正在读取当前版本的更新内容…</p><div v-if="announcements.error" class="note error" role="alert">{{ announcements.error }} <button class="btn small" @click="announcements.show()">重新读取</button></div><ul class="announcement-changes"><li v-for="(change,i) in announcements.data.changes" :key="i"><h3>{{ change.title }}</h3><p>{{ change.description }}</p></li></ul></div>
+    <footer class="announcement-footer"><small>每次打开时显示，顶部可随时查看。</small><button class="btn primary" data-announcement-dismiss @click="announcements.close()">知道了，进入工作台</button></footer>
+  </dialog>
+
   <!-- ======================= 全局弹层 ======================= -->
   <div class="modal-mask" v-if="modal.open" @click.self="closeModal()">
     <div class="modal" :class="{wide: modal.wide}" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -988,6 +1051,8 @@
 <script src="api.js"></script>
 <script src="chat.js"></script>
 <script src="overview.js"></script>
+<script src="benefits.js"></script>
+<script src="announcements.js"></script>
   <script src="quota.js"></script>
   <script src="accounts.js"></script>
 

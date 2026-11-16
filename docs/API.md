@@ -132,6 +132,7 @@ Chat Completions 等接口通常返回 `{"error":{"message":"原因","type":"类
 | 接口 | 用途 |
 | --- | --- |
 | `GET /admin/providers` | 当前注册渠道和能力 |
+| `GET /admin/announcements` | 当前运行版本的更新公告，字段见[更新公告](ANNOUNCEMENTS.md) |
 | `GET/POST /admin/accounts` | 账号列表／新建 |
 | `GET/PATCH/DELETE /admin/accounts/{id}` | 账号详情／修改／删除 |
 | `PUT /admin/accounts/{id}/credential` | 保存凭证 |
@@ -146,6 +147,8 @@ Chat Completions 等接口通常返回 `{"error":{"message":"原因","type":"类
 | `POST /admin/accounts/login/{id}/cancel` | 取消授权 |
 | `POST /admin/accounts/{id}/checkin` | 手动领取平台奖励 |
 | `GET /admin/checkin/schedule` | 查看计划 |
+| `GET /admin/benefits` | 福利目录查询，参数和缓存见[福利中心](BENEFITS.md) |
+| `GET /admin/benefits/{id}` | 福利详情、条件及官方领取说明 |
 | `GET/POST /admin/keys` | 列出／新建网关密钥 |
 | `PATCH/DELETE /admin/keys/{id}` | 修改／撤销密钥 |
 | `PUT /admin/keys/{id}/armor` | 设置指定密钥的实际预设开关 |

@@ -108,7 +108,7 @@
     // 路由
     route: "overview",
     routeParam: null,
-    get pageTitle() { return ({overview:'概览',chat:'聊天',accounts:'账号池',account:'账号详情',armor:'破甲预设',logs:'请求日志',keys:'API 密钥',settings:'连接设置'})[this.route] || '工作台'; },
+    get pageTitle() { return ({overview:'概览',chat:'聊天',accounts:'账号池',account:'账号详情',benefits:'福利中心',armor:'破甲预设',logs:'请求日志',keys:'API 密钥',settings:'连接设置'})[this.route] || '工作台'; },
 
     // 连接状态
     authed: false,
@@ -139,11 +139,13 @@
     keys: null,
     logs: null,
     settings: null,
+    benefits: null,
   });
 
   // ---------- 全局动作 ----------
 
   window.RPAPP = app;
+  app.announcements = RPAnnouncements.createVM(reactive,nextTick);
 
   function go(route, param) {
     location.hash = param ? "#/" + route + "/" + param : "#/" + route;
@@ -236,6 +238,8 @@
   app.checkConnection = checkConnection;
 
   app.logout = function () {
+    app.announcements.reset();
+    if(app.benefits)app.benefits.dispose();
     invalidateConnectionChecks();
     navGeneration++;
     // 退出时释放聊天高度观察器；视图移除可能发生在会话对象清空之后。
@@ -258,12 +262,14 @@
     app.keys = null;
     app.logs = null;
     app.settings = null;
+    app.benefits = null;
     toast("已清除本机保存的 Key");
   };
 
   // ---------- 路由 ----------
 
   const routes = {
+    benefits: "benefits",
     overview: "overview",
     chat: "chat",
     accounts: "accounts",
@@ -307,6 +313,7 @@
     if (!app.authed) return;
 
     const target = parseHash();
+    if(target.name!=="benefits"&&app.benefits)app.benefits.dispose();
     const generation = ++navGeneration;
     const vmKey = routes[target.name];
     if (!vmKey) return;
@@ -1278,15 +1285,18 @@
           invalidateConnectionChecks();
           const changed=result.base!==RP.base.value||result.key!==RP.key.value;
           if(changed){
+            app.announcements.reset();
             navGeneration++;
             if(app.chat){app.chat.stop();app.chat.unmounted();}
             if(app.accounts){app.accounts.stopTests();app.accounts.login?.stopPolling();}
-            for(const name of ['overview','chat','accounts','accountDetail','armor','keys','logs'])app[name]=null;
+            if(app.benefits)app.benefits.dispose();
+            for(const name of ['overview','chat','accounts','accountDetail','armor','keys','logs','benefits'])app[name]=null;
           }
           RP.base.value=result.base;RP.key.value=result.key;
           this.baseVal=result.base;this.keyVal=result.key;this.saved=true;
           app.conn.health=result.health;app.conn.access=result.access;app.conn.accessBadge=accessBadge(result.access.mode);app.conn.connError='';app.authed=true;
           toast('连接已验证并保存');
+          if(changed)app.announcements.openOnEntry();
         }catch(e){this.error='验证失败，原连接保持不变：'+e.message;}
         finally{this.saving=false;}
       },
@@ -1294,6 +1304,7 @@
   }
 
   app._factories = {
+    benefits: ()=>RPBenefits.createVM(reactive),
     overview: newOverviewVM,
     chat: ()=>RPChat.createVM(reactive,nextTick,toast),
     accounts: newAccountsVM,
@@ -1351,6 +1362,7 @@
     // once the data is in hand, so it is the single entry point for "show this
     // route".
     navigate();
+    app.announcements.openOnEntry();
   }
 
   // ---------- 启动 ----------

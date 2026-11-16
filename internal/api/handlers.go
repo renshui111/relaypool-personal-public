@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -31,33 +32,69 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 }
 
 // 目录只展示当前密钥可用账号提供的已授权型号。
+//
+// 返回给客户端的目录先去重再按型号名排序：同一个型号只出现一次，客户端不
+// 用自己处理重复项。渠道前缀（provider/model）只在池里存在多个渠道时才补充，
+// 用于精确指定渠道；单渠道实例直接返回裸型号，避免同一型号出现两次，也避免
+// 暴露 provider/region 这种自动选型别名。
 func (s *Server) modelCatalog(p store.KeyPermissions) []map[string]any {
-	data := []map[string]any{}
-	seen := map[string]bool{}
-	for _, item := range s.pool.Items() {
+	snapshot := s.pool.Items()
+	items := make([]pool.Item, 0, len(snapshot))
+	byModel := map[string]string{} // 裸型号 -> 第一个提供它的渠道
+	providers := map[string]bool{}
+	for _, item := range snapshot {
 		if !item.Enabled || !p.AllowsAccount(item.ID) {
 			continue
 		}
+		items = append(items, item)
+		providers[item.Provider] = true
 		for _, model := range item.Models {
 			if model == "" || !s.keyAllowsModel(p, model, item.Provider) {
 				continue
 			}
-			for _, id := range []string{model, item.Provider + "/" + model} {
-				if seen[id] {
-					continue
-				}
-				seen[id] = true
-				data = append(data, map[string]any{"id": id, "object": "model", "owned_by": item.Provider})
+			if _, ok := byModel[model]; !ok {
+				byModel[model] = item.Provider
 			}
+		}
+	}
+
+	ids := make([]string, 0, len(byModel))
+	for id := range byModel {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	data := make([]map[string]any, 0, len(ids))
+	for _, id := range ids {
+		data = append(data, map[string]any{"id": id, "object": "model", "owned_by": byModel[id]})
+	}
+
+	// 只有多渠道池才需要带渠道前缀的写法；单渠道时它会和裸型号重复。
+	if len(providers) < 2 {
+		return data
+	}
+
+	aliases := make([]string, 0, len(ids))
+	for _, item := range items {
+		for _, model := range item.Models {
+			if model == "" || !s.keyAllowsModel(p, model, item.Provider) {
+				continue
+			}
+			aliases = append(aliases, item.Provider+"/"+model)
 		}
 		// 限定型号时不暴露可能自动选择其他模型的区域别名。
 		if p.AllModels {
-			id := item.Provider + "/" + item.Region
-			if !seen[id] {
-				seen[id] = true
-				data = append(data, map[string]any{"id": id, "object": "model", "owned_by": item.Provider})
-			}
+			aliases = append(aliases, item.Provider+"/"+item.Region)
 		}
+	}
+	sort.Strings(aliases)
+	seen := make(map[string]bool, len(aliases))
+	for _, id := range aliases {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		provider, _, _ := strings.Cut(id, "/")
+		data = append(data, map[string]any{"id": id, "object": "model", "owned_by": provider})
 	}
 	return data
 }

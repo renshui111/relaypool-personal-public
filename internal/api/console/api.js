@@ -207,6 +207,9 @@
     completeLogin: (id, callback_url) => request("POST", "/admin/accounts/login/" + encodeURIComponent(id) + "/complete", {callback_url}),
     checkinAccount: (id) => request("POST", "/admin/accounts/" + encodeURIComponent(id) + "/checkin", {}),
     checkinSchedule: () => request("GET", "/admin/checkin/schedule"),
+    announcements: () => request("GET", "/admin/announcements"),
+    listBenefits: (query) => request("GET", "/admin/benefits?" + new URLSearchParams(query)),
+    benefitDetail: (id) => request("GET", "/admin/benefits/" + encodeURIComponent(id)),
     startLogin: (body) => request("POST", "/admin/accounts/login/start", body),
     loginStatus: (id) => request("GET", "/admin/accounts/login/" + encodeURIComponent(id)),
     cancelLogin: (id) =>

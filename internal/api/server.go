@@ -76,6 +76,7 @@ type Server struct {
 	loginStartMu  sync.Mutex
 	inspectionMu  sync.Mutex
 	quotaCache    map[string]*quotaCacheEntry
+	benefits      benefitFeed
 
 	// 流式响应只限制单次阻塞写入，测试可缩短期限复核慢速连接。
 	streamWriteTimeout time.Duration
@@ -439,6 +440,9 @@ func (s *Server) routes() {
 	s.mux.Handle("POST /v1/responses", s.auth(http.HandlerFunc(s.handleResponses)))
 
 	// Admin surface.
+	s.mux.Handle("GET /admin/announcements", s.auth(http.HandlerFunc(s.handleAnnouncements)))
+	s.mux.Handle("GET /admin/benefits", s.auth(http.HandlerFunc(s.handleBenefits)))
+	s.mux.Handle("GET /admin/benefits/{id}", s.auth(http.HandlerFunc(s.handleBenefitDetail)))
 	s.mux.Handle("GET /admin/accounts", s.auth(http.HandlerFunc(s.handleListAccounts)))
 	s.mux.Handle("POST /admin/accounts/test", s.auth(http.HandlerFunc(s.handleTestAccounts)))
 	s.mux.Handle("POST /admin/accounts/{id}/chat/completions", s.auth(http.HandlerFunc(s.handleAccountChat)))
