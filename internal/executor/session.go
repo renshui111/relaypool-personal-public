@@ -21,7 +21,9 @@ const DefaultSessionTTL = 30 * time.Minute
 // exhaust memory. An LRU makes the memory ceiling a constant.
 const DefaultSessionCapacity = 10_000
 
-// sessionBinding is one conversation's account assignment.
+// sessionBinding is one conversation's account assignment. List elements hold
+// pointers so TTL/account refreshes reuse the record without interface boxing.
+// Bindings never escape SessionAffinity and are only accessed under its mutex.
 type sessionBinding struct {
 	key       string
 	accountID string
@@ -108,7 +110,7 @@ func (a *SessionAffinity) Get(key string) (string, bool) {
 		a.lastMissReason = "not_found"
 		return "", false
 	}
-	binding, _ := element.Value.(sessionBinding)
+	binding := element.Value.(*sessionBinding)
 	now := time.Now()
 	if !binding.expiresAt.After(now) {
 		// Expired entries are removed on access so a stale binding cannot
@@ -120,7 +122,6 @@ func (a *SessionAffinity) Get(key string) (string, bool) {
 	}
 	a.hits++
 	binding.expiresAt = now.Add(a.ttl)
-	element.Value = binding
 	a.lru.MoveToFront(element)
 	return binding.accountID, true
 }
@@ -140,18 +141,20 @@ func (a *SessionAffinity) Bind(key, accountID string) {
 	defer a.mu.Unlock()
 
 	if element, ok := a.entries[key]; ok {
-		if previous, ok := element.Value.(sessionBinding); ok && previous.accountID != accountID {
+		binding := element.Value.(*sessionBinding)
+		if binding.accountID != accountID {
 			// The conversation moved accounts, which is what a failover looks
 			// like. Counting it distinguishes "sticky is working" from
 			// "everything is bouncing".
 			a.rebindings++
 		}
-		element.Value = sessionBinding{key: key, accountID: accountID, expiresAt: time.Now().Add(a.ttl)}
+		binding.accountID = accountID
+		binding.expiresAt = time.Now().Add(a.ttl)
 		a.lru.MoveToFront(element)
 		return
 	}
 
-	element := a.lru.PushFront(sessionBinding{key: key, accountID: accountID, expiresAt: time.Now().Add(a.ttl)})
+	element := a.lru.PushFront(&sessionBinding{key: key, accountID: accountID, expiresAt: time.Now().Add(a.ttl)})
 	a.entries[key] = element
 	for a.lru.Len() > a.capacity {
 		a.removeLocked(a.lru.Back())
@@ -228,7 +231,7 @@ func (a *SessionAffinity) Prune() int {
 	// Both Bind and Get renew the TTL when moving an entry to the front.
 	// Expiration therefore follows LRU order, so stop at the first live entry.
 	for element := a.lru.Back(); element != nil; {
-		binding, _ := element.Value.(sessionBinding)
+		binding := element.Value.(*sessionBinding)
 		previous := element.Prev()
 		if binding.expiresAt.After(now) {
 			break
@@ -244,7 +247,7 @@ func (a *SessionAffinity) removeLocked(element *list.Element) {
 	if element == nil {
 		return
 	}
-	binding, _ := element.Value.(sessionBinding)
+	binding := element.Value.(*sessionBinding)
 	delete(a.entries, binding.key)
 	a.lru.Remove(element)
 }
