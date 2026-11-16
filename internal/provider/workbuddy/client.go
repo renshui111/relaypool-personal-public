@@ -30,7 +30,7 @@ type Config struct {
 	ProxyURL string
 	// UserAgent overrides the default client identity.
 	UserAgent string
-	// IdentityProfile selects an opt-in CN chat/catalog identity. Empty keeps CLI.
+	// IdentityProfile selects the CN chat/catalog identity. Empty uses desktop.
 	IdentityProfile string
 }
 
@@ -61,6 +61,9 @@ const catalogTTL = 10 * time.Minute
 
 // New creates an adapter.
 func New(cfg Config) *Client {
+	if cfg.IdentityProfile == "" {
+		cfg.IdentityProfile = DesktopIdentity593
+	}
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = 120 * time.Second
 	}

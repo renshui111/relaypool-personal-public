@@ -2,13 +2,13 @@ package workbuddy
 
 import "net/http"
 
-// DesktopIdentity593 is the opt-in header profile supplied for compatibility
+// DesktopIdentity593 is the default CN header profile supplied for compatibility
 // testing. It does not launch the official app, change TLS, or promise any
 // particular upstream client classification. Endpoints remain unchanged.
 const DesktopIdentity593 = "desktop-5.9.3"
 
-// applyIdentityProfile runs after the legacy UA override so an explicitly
-// selected desktop profile cannot accidentally retain a conflicting CLI UA.
+// applyIdentityProfile runs after the legacy UA override so the desktop
+// profile cannot accidentally retain a conflicting CLI UA.
 // Only CN chat/catalog calls use it; login, refresh and billing retain their
 // separate existing protocol until those endpoints have independent evidence.
 func (c *Client) applyIdentityProfile(h http.Header, cred Credential) {

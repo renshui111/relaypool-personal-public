@@ -236,9 +236,10 @@ func Default() Config {
 			Capacity: 10000,
 		},
 		Upstream: UpstreamConfig{
-			Timeout:       120 * time.Second,
-			HeaderTimeout: 120 * time.Second,
-			IdleTimeout:   300 * time.Second,
+			WorkBuddyIdentity: "desktop-5.9.3",
+			Timeout:           120 * time.Second,
+			HeaderTimeout:     120 * time.Second,
+			IdleTimeout:       300 * time.Second,
 		},
 		Schedule: ScheduleConfig{
 			CatalogRefresh:   30 * time.Minute,

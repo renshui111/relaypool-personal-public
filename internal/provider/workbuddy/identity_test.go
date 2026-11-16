@@ -13,9 +13,11 @@ import (
 
 func TestDesktopIdentityOnFinalOutboundRequests(t *testing.T) {
 	for _, tc := range []struct{ name, profile, domain, ua, ide, host string }{
+		{"default-cn", "", "codebuddy.cn", "WorkBuddy/5.9.3 WorkBuddy/5.9.3 CLI/2.161.0", "WorkBuddy", "copilot.tencent.com"},
 		{"desktop-cn", DesktopIdentity593, "codebuddy.cn", "WorkBuddy/5.9.3 WorkBuddy/5.9.3 CLI/2.161.0", "WorkBuddy", "copilot.tencent.com"},
 		{"legacy-cn", "cli", "codebuddy.cn", "custom-UA", "CLI", "copilot.tencent.com"},
 		{"global-unchanged", DesktopIdentity593, "workbuddy.ai", "custom-UA", "CLI", "www.workbuddy.ai"},
+		{"default-global-unchanged", "", "workbuddy.ai", "custom-UA", "CLI", "www.workbuddy.ai"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := New(Config{IdentityProfile: tc.profile, UserAgent: "custom-UA"})
@@ -26,7 +28,7 @@ func TestDesktopIdentityOnFinalOutboundRequests(t *testing.T) {
 				if r.URL.Host != tc.host || r.Header.Get("User-Agent") != tc.ua || r.Header.Get("Authorization") != "Bearer synthetic-token" {
 					t.Fatal("destination, identity or credential changed unexpectedly")
 				}
-				if tc.name == "desktop-cn" {
+				if tc.ide == "WorkBuddy" {
 					for k, want := range map[string]string{"X-IDE-Type": "WorkBuddy", "X-IDE-Name": "WorkBuddy", "X-IDE-Version": "5.9.3", "X-Product-Version": "5.9.3", "X-Domain": "workbuddy.cn", "Origin": "https://www.workbuddy.cn", "Referer": "https://www.workbuddy.cn/", "X-Agent-Intent": "craft", "X-Agent-Purpose": "conversation", "X-Agent-Type": "main", "X-Agent-Runtime": "local-agent"} {
 						if r.Header.Get(k) != want {
 							t.Errorf("%s=%q want %q", k, r.Header.Get(k), want)
@@ -39,7 +41,7 @@ func TestDesktopIdentityOnFinalOutboundRequests(t *testing.T) {
 						t.Fatal("wrong chat channel")
 					}
 					body = "data: {\"choices\":[{\"delta\":{\"content\":\"OK\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
-				} else if tc.name != "desktop-cn" && r.Header.Get("X-IDE-Type") != "" {
+				} else if tc.ide != "WorkBuddy" && r.Header.Get("X-IDE-Type") != "" {
 					t.Fatal("legacy catalog acquired chat headers")
 				}
 				return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": []string{"text/event-stream"}}, Body: io.NopCloser(strings.NewReader(body))}, nil

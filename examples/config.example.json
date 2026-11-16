@@ -15,7 +15,7 @@
     "expiring_soon": "168h"
   },
   "session": {"enabled": true, "ttl": "30m", "capacity": 10000},
-  "upstream": {"timeout": "120s", "header_timeout": "120s", "idle_timeout": "300s"},
+  "upstream": {"timeout": "120s", "header_timeout": "120s", "idle_timeout": "300s", "workbuddy_identity": "desktop-5.9.3"},
   "schedule": {
     "catalog_refresh": "30m",
     "checkin_enabled": true,
