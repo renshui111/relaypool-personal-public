@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,15 @@ func classifyHTTP(status int, retryAfterHeader, body string) *provider.Failure {
 	failure.RetryAfter = parseRetryAfter(retryAfterHeader, body)
 
 	switch {
+	case code == strconv.Itoa(codeToolHistoryMismatch) || (code == "" && containsAny(message, textToolHistoryMismatch)):
+		// Retrying the same tool history on another account cannot repair it.
+		failure.KindHint = pool.KindInvalidRequest
+		failure.Status = http.StatusBadRequest
+		failure.RetryAfter = 0
+		if failure.Message == "" {
+			failure.Message = "工具调用与工具结果不匹配，请新建会话后重试。"
+		}
+
 	// A dead session must NOT be cooled like an auth failure: it needs a token
 	// refresh, and cooling it for 30 seconds would just repeat the same error.
 	case code == strconv.Itoa(codeSessionDead) || containsAny(message, textSessionDead):

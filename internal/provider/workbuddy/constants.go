@@ -85,6 +85,9 @@ const (
 	codeEmptyMessage = 11151
 	textEmptyMessage = "a message has empty content"
 
+	codeToolHistoryMismatch = 11148
+	textToolHistoryMismatch = "tool calls and tool results do not match"
+
 	// codeRateLimit marks a usage limit whose response carries an ABSOLUTE
 	// reset timestamp. Cooling for the generic fallback would retry seconds
 	// later and burn more of an allowance that is already spent.

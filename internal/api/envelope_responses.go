@@ -99,17 +99,28 @@ func parseResponsesInput(raw json.RawMessage) []provider.Message {
 	}
 
 	var out []provider.Message
+	var calls []map[string]any
+	flushCalls := func() {
+		if len(calls) == 0 {
+			return
+		}
+		encoded, _ := json.Marshal(calls)
+		out = append(out, provider.Message{
+			Role: "assistant", Content: json.RawMessage(`""`), ToolCalls: encoded,
+		})
+		calls = nil
+	}
 	for _, item := range items {
+		// Chat Completions expects all calls in a parallel batch in one
+		// assistant message, followed by each tool's result.
+		if item.Type != "function_call" && item.Type != "reasoning" {
+			flushCalls()
+		}
 		switch item.Type {
 		case "function_call":
-			// A tool invocation from a previous turn.
-			calls := []any{map[string]any{
+			calls = append(calls, map[string]any{
 				"id": item.CallID, "type": "function",
 				"function": map[string]any{"name": item.Name, "arguments": item.Arguments},
-			}}
-			encoded, _ := json.Marshal(calls)
-			out = append(out, provider.Message{
-				Role: "assistant", Content: json.RawMessage(`""`), ToolCalls: encoded,
 			})
 		case "function_call_output":
 			// A tool result.
@@ -135,6 +146,7 @@ func parseResponsesInput(raw json.RawMessage) []provider.Message {
 			out = append(out, provider.Message{Role: role, Content: flattenResponsesContent(content)})
 		}
 	}
+	flushCalls()
 	return out
 }
 

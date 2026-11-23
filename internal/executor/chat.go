@@ -232,7 +232,8 @@ func (e *Executor) classify(item pool.Item, req Request, err error) *pool.Classi
 	)
 	// The adapter's own message is more specific than what the generic
 	// extractor can recover from an upstream body.
-	if classified.Message == "" && failure.Message != "" {
+	codeOnlyRequestError := failure.KindHint == pool.KindInvalidRequest && classified.Message == classified.Code
+	if failure.Message != "" && (classified.Message == "" || codeOnlyRequestError) {
 		classified.Message = failure.Message
 	}
 	if failure.Code != "" {
