@@ -36,3 +36,25 @@ func TestResponsesParallelToolHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestResponsesToolOutputContent(t *testing.T) {
+	for _, tc := range []struct{ name, input, want string }{
+		{"text parts", `[{"type":"input_text","text":"one "},{"type":"input_text","text":"two"}]`, `"one two"`},
+		{"mixed media", `[{"type":"input_text","text":"caption"},{"type":"input_image","image_url":"https://example.test/image","detail":"low"}]`, `[{"text":"caption","type":"text"},{"image_url":{"detail":"low","url":"https://example.test/image"},"type":"image_url"}]`},
+		{"string", `"ok"`, `"ok"`},
+		{"opaque array", `[{"value":9876543212345678901}]`, `[{"value":9876543212345678901}]`},
+		{"null", `null`, `null`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := json.RawMessage(`[{"type":"function_call_output","call_id":"test","output":` + tc.input + `}]`)
+			req, err := parseResponsesRequest([]byte(`{"model":"m","input":` + string(input) + `}`))
+			if err != nil || string(req.NativeInput) != string(input) {
+				t.Fatalf("original Responses input was lost: %v", err)
+			}
+			got := req.Messages
+			if len(got) != 1 || got[0].ToolCallID != "test" || got[0].Role != "tool" || string(got[0].Content) != tc.want {
+				t.Fatalf("unexpected tool result: %+v", got)
+			}
+		})
+	}
+}

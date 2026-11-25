@@ -42,6 +42,7 @@ type requestLogEntry struct {
 	// before dispatch, so a failed request still needs to say what was sent.
 	armorDecision *armor.Decision
 
+	attempts  []store.RequestAttempt
 	startedAt time.Time
 }
 
@@ -76,6 +77,16 @@ func (s *Server) beginRequest(r *http.Request, requestID, protocol string, req *
 		log.Printf("api: start request log %s: %v", requestID, err)
 	}
 	return entry
+}
+
+func (entry *requestLogEntry) recordAttempt(record executor.AttemptRecord) {
+	latency := int(record.Latency.Milliseconds())
+	entry.attempts = append(entry.attempts, store.RequestAttempt{
+		AttemptIndex: record.AttemptIndex, AccountID: record.AccountID, Provider: record.Provider,
+		Status: record.Status, ErrorKind: record.ErrorKind, ErrorCode: record.ErrorCode,
+		ErrorMessage: record.ErrorMessage, LatencyMs: &latency,
+		StartedAt: record.StartedAt, FinishedAt: record.FinishedAt,
+	})
 }
 
 // finishRequest writes the final outcome.
@@ -160,9 +171,23 @@ func (s *Server) finishRequest(entry *requestLogEntry, result *executor.Result, 
 		}
 	}
 
+	if n := len(entry.attempts); n > 0 {
+		last := &entry.attempts[n-1]
+		update.AttemptCount = n
+		update.AccountID, update.Provider = last.AccountID, last.Provider
+		if entry.stream && result != nil && result.Stream != nil {
+			last.FinishedAt = update.FinishedAt
+			latency := int(last.FinishedAt.Sub(last.StartedAt).Milliseconds())
+			last.LatencyMs = &latency
+			if requestErr != nil {
+				last.Status, last.ErrorKind = store.StatusError, update.ErrorKind
+				last.ErrorCode, last.ErrorMessage = update.ErrorCode, update.ErrorMessage
+			}
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := s.store.FinishRequest(ctx, update); err != nil {
+	if err := s.store.FinishRequest(ctx, update, entry.attempts...); err != nil {
 		log.Printf("api: finish request log %s: %v", entry.id, err)
 	}
 }

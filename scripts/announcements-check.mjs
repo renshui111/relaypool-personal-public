@@ -17,6 +17,7 @@ check('最新与历史公告完整读取',()=>{const data=parse(payload);assert.
 // Fingerprints were captured from each original release before archiving.
 check('以往版本逐字归档', () => {
   const archivedHashes = {
+    '2026.11.23': 'c9148b210fec3157257b665abf4d7b07f19ae48eb7c371d6612288137ba8f3c1',
     '2026.11.16.3': '72a8c95fa82867c3c12ed5d777a731bc2bc6e22b4ca1dd5ca1bce3d0d9a0e126',
     '2026.11.16.2': '7f4c7945cf1ab67b8dbd2a7e59c7b61a17caf810d1580287a109019a17098d33',
     '2026.11.16.1': 'c801058cc5bc4c582f075389ca4c2a605d6519dbe301d42a201fe527347cacd2',

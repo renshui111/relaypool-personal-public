@@ -72,6 +72,11 @@ func classifyHTTP(status int, retryAfterHeader, body string) *provider.Failure {
 			failure.Message = "工具调用与工具结果不匹配，请新建会话后重试。"
 		}
 
+	case (code == "11101" || code == "") && containsAny(message, "parse message failed: unsupported content type"):
+		failure.KindHint = pool.KindInvalidRequest
+		failure.Status = http.StatusBadRequest
+		failure.RetryAfter = 0
+
 	// A dead session must NOT be cooled like an auth failure: it needs a token
 	// refresh, and cooling it for 30 seconds would just repeat the same error.
 	case code == strconv.Itoa(codeSessionDead) || containsAny(message, textSessionDead):

@@ -221,3 +221,31 @@ func TestOptimizationCooldownTransitionsNotify(t *testing.T) {
 		t.Fatal("冷却开始或到期没有发出正确的持久化快照")
 	}
 }
+
+func TestAcquireTargetReasons(t *testing.T) {
+	until := time.Now().Add(time.Hour)
+	p := New(StrategyRoundRobin)
+	seed := item("a", func(i *Item) {
+		i.DownUntil = until.Add(-time.Minute)
+		i.ModelDownUntil = map[string]time.Time{"m": until}
+		i.MaxInflight = 1
+	})
+	p.Upsert(seed)
+	if got := p.AcquireTarget("missing", "m", false); got.OK || got.Reason != ReasonNoAccounts {
+		t.Fatal(got)
+	}
+	if got := p.AcquireTarget("a", "m", false); got.OK || got.Reason != ReasonAllCooling || !got.RetryAt.Equal(until) {
+		t.Fatal(got)
+	}
+	if got := p.AcquireTarget("a", "other", false); got.OK || !got.RetryAt.Equal(seed.DownUntil) {
+		t.Fatal(got)
+	}
+	probe := p.AcquireTarget("a", "m", true)
+	if !probe.OK {
+		t.Fatal(probe)
+	}
+	if got := p.AcquireTarget("a", "m", true); got.OK || got.Reason != ReasonAllSaturated || !got.RetryAt.IsZero() {
+		t.Fatal(got)
+	}
+	p.ReleaseItem(probe.Item)
+}

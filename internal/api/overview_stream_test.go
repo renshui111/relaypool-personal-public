@@ -53,6 +53,13 @@ func TestOverviewLogsActualStreamMetadata(t *testing.T) {
 				t.Fatalf("缺少流式调用记录：%d", len(rows))
 			}
 			row := rows[0]
+			attempts, err := server.store.ListAttempts(t.Context(), row.ID)
+			if err != nil || len(attempts) != 1 || attempts[0].Status != tt.status || attempts[0].AccountID != row.AccountID {
+				t.Fatalf("stream attempts = %+v, err = %v", attempts, err)
+			}
+			if tt.status == store.StatusError && (attempts[0].ErrorKind != "stream_error" || attempts[0].ErrorMessage == "") {
+				t.Fatalf("missing stream failure: %+v", attempts[0])
+			}
 			if row.Status != tt.status {
 				t.Fatalf("最终状态错误：%s", row.Status)
 			}

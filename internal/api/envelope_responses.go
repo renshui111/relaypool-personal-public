@@ -126,7 +126,7 @@ func parseResponsesInput(raw json.RawMessage) []provider.Message {
 			// A tool result.
 			encoded, _ := json.Marshal(item.Arguments)
 			if len(item.Output) > 0 {
-				encoded = item.Output
+				encoded = normalizeResponsesToolOutput(item.Output)
 			}
 			out = append(out, provider.Message{
 				Role: "tool", Content: encoded, ToolCallID: item.CallID,
@@ -148,6 +148,32 @@ func parseResponsesInput(raw json.RawMessage) []provider.Message {
 	}
 	flushCalls()
 	return out
+}
+
+// Only Responses content parts need translation. Other arrays may be opaque tool data.
+func normalizeResponsesToolOutput(raw json.RawMessage) json.RawMessage {
+	if len(raw) == 0 || raw[0] != '[' {
+		return raw
+	}
+	var parts []struct {
+		Type string
+		Text *string
+	}
+	if json.Unmarshal(raw, &parts) != nil || len(parts) == 0 {
+		return raw
+	}
+	for _, part := range parts {
+		switch part.Type {
+		case "input_text", "output_text", "text":
+			if part.Text == nil {
+				return raw
+			}
+		case "input_image", "image_url":
+		default:
+			return raw
+		}
+	}
+	return flattenResponsesContent(raw)
 }
 
 // 将 Responses 内容转换为中立文本或图文数组，保留图片地址及细节参数。

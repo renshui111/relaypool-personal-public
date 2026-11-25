@@ -18,15 +18,19 @@ func (toolHistoryCredentials) CredentialFor(id string) (provider.Credential, err
 	return provider.Credential{AccountID: id, Raw: []byte(`{"access_token":"test","uid":"test","domain":"codebuddy.cn"}`)}, nil
 }
 
-func TestToolHistoryMismatchStopsAtFirstAccount(t *testing.T) {
+func TestInvalidMessagesStopAtFirstAccount(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		body   string
 		stream bool
+		status int
+		code   string
 	}{
-		{"numeric", `{"error":{"code":11148,"message":"tool calls and tool results do not match, please start a new conversation and retry"}}`, true},
-		{"nested-code-only", `{"error":{"data":{"code":"11148"}}}`, false},
-		{"message-only", `{"error":{"message":"Tool calls and tool results do not match"}}`, false},
+		{"numeric", `{"error":{"code":11148,"message":"tool calls and tool results do not match, please start a new conversation and retry"}}`, true, 502, "11148"},
+		{"nested-code-only", `{"error":{"data":{"code":"11148"}}}`, false, 502, "11148"},
+		{"message-only", `{"error":{"message":"Tool calls and tool results do not match"}}`, false, 502, ""},
+		{"parse-400", `{"error":{"code":11101,"message":"Parse message failed: unsupported content type at index 0: input_text"}}`, false, 400, "11101"},
+		{"parse-502", `{"error":{"data":{"code":"11101","msg":"Parse message failed: unsupported content type at index 0: input_text"}}}`, true, 502, "11101"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := pool.New(pool.StrategyRoundRobin)
@@ -37,7 +41,7 @@ func TestToolHistoryMismatchStopsAtFirstAccount(t *testing.T) {
 			client := New(Config{})
 			client.streamer.Transport = checkinBusinessTransport(func(*http.Request) (*http.Response, error) {
 				calls++
-				return &http.Response{StatusCode: 502, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
+				return &http.Response{StatusCode: tc.status, Header: http.Header{"Retry-After": []string{"60"}}, Body: io.NopCloser(strings.NewReader(tc.body))}, nil
 			})
 			registry := provider.NewRegistry()
 			registry.Register(client)
@@ -53,7 +57,10 @@ func TestToolHistoryMismatchStopsAtFirstAccount(t *testing.T) {
 				if !errors.As(err, &failure) || calls != before+1 || failure.Status != 400 || failure.Kind != pool.KindInvalidRequest || failure.RetryAfter != 0 {
 					t.Fatalf("upstream calls=%d, failure=%+v", calls-before, failure)
 				}
-				if tc.name != "message-only" && failure.Code != "11148" {
+				if failure.Attempts != 1 || failure.LastAccountID == "" || failure.LastProvider != Family {
+					t.Fatalf("missing attempt attribution: %+v", failure)
+				}
+				if tc.code != "" && failure.Code != tc.code {
 					t.Errorf("lost upstream code: %q", failure.Code)
 				}
 				if tc.name == "nested-code-only" && !strings.Contains(failure.Message, "新建会话") {
@@ -66,5 +73,17 @@ func TestToolHistoryMismatchStopsAtFirstAccount(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUnrelatedWBErrorsKeepOriginalClassification(t *testing.T) {
+	for _, body := range []string{
+		`{"error":{"code":11101,"message":"Service unavailable"}}`,
+		`{"error":{"code":"12345","message":"Parse message failed: unsupported content type"}}`,
+	} {
+		failure := classifyHTTP(502, "", body)
+		if failure.Status != 502 || failure.KindHint == pool.KindInvalidRequest {
+			t.Fatalf("unexpected classification: %+v", failure)
+		}
 	}
 }

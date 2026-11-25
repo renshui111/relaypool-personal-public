@@ -52,7 +52,7 @@ type Executor struct {
 }
 
 // AttemptObserver records one account attempt. Implementations should be
-// non-blocking; the store-backed one writes asynchronously.
+// non-blocking because they run on the request path.
 type AttemptObserver func(AttemptRecord)
 
 // AttemptRecord describes one attempt at one account.
@@ -113,6 +113,8 @@ func (e *Executor) notify(record AttemptRecord) {
 
 // Request is one client completion request.
 type Request struct {
+	// OnAttempt collects only this request's attempts, in dispatch order.
+	OnAttempt AttemptObserver
 	// 适配器已被调用但返回错误时通知入口；凭证读取或选号失败不通知。
 	OnUpstreamFailure func(error)
 	// ID correlates the request with its attempt records.
@@ -260,6 +262,7 @@ func (e *Executor) execute(
 			return nil, loop.pickFailure(err)
 		}
 
+		loop.lastAccountID, loop.lastProvider = item.ID, item.Provider
 		p, err := e.registry.Lookup(item.Provider)
 		if err != nil {
 			e.pool.ReleaseItem(item)
@@ -330,9 +333,7 @@ func (e *Executor) execute(
 				Message: "the client closed the request",
 				Cause:   ctxErr,
 			}
-			loop.lastAccountID = item.ID
-			loop.lastProvider = item.Provider
-			return nil, loop.lastErr
+			return nil, loop.contextError(ctxErr)
 		}
 
 		if classified == nil {
@@ -353,8 +354,6 @@ func (e *Executor) execute(
 		loop.recordFailure(item, attemptNumber, *classified, started, finished)
 
 		loop.lastErr = loop.failureFrom(item, classified, attemptErr)
-		loop.lastAccountID = item.ID
-		loop.lastProvider = item.Provider
 
 		// A stale catalog is the usual cause of "model not available", so ask
 		// the adapter to drop its cache. This is best-effort: a failure to
@@ -452,12 +451,12 @@ func (l *routeLoop) pickNext() (pool.Item, error) {
 				return pool.Item{}, &noAccountError{reason: pool.ReasonNoAccounts}
 			}
 		}
-		item, ok := l.pool.AcquireTarget(l.request.OnlyAccount, modelOf(l.request), l.request.RecoveryProbe)
-		if !ok {
-			return pool.Item{}, &noAccountError{reason: pool.ReasonAllSaturated}
+		result := l.pool.AcquireTarget(l.request.OnlyAccount, modelOf(l.request), l.request.RecoveryProbe)
+		if !result.OK {
+			return pool.Item{}, &noAccountError{reason: result.Reason, retryAt: result.RetryAt}
 		}
 		l.index++
-		return item, nil
+		return result.Item, nil
 	}
 	// Excluded accounts are passed to the pool rather than filtered here, so
 	// the pool's rotation cursor advances over the real candidate set.
@@ -525,10 +524,14 @@ func (l *routeLoop) pickFailure(err error) error {
 	if errors.As(err, &noAccount) {
 		switch noAccount.reason {
 		case pool.ReasonAllSaturated:
+			message := "every account is at its concurrency limit; retry shortly"
+			if l.request.OnlyAccount != "" {
+				message = "the selected account is at its concurrency limit"
+			}
 			return &FailureError{
 				Status: 429, Kind: pool.KindRateLimit,
 				Code:    "pool_saturated",
-				Message: "every account is at its concurrency limit; retry shortly",
+				Message: message,
 				Cause:   err,
 			}
 		case pool.ReasonAllCooling:
@@ -537,6 +540,9 @@ func (l *routeLoop) pickFailure(err error) error {
 				Code:    "all_accounts_cooling",
 				Message: "every account for this model is cooling down",
 				Cause:   err,
+			}
+			if l.request.OnlyAccount != "" {
+				failure.Message = "the selected account is cooling down for this model"
 			}
 			if !noAccount.retryAt.IsZero() {
 				failure.RetryAfter = time.Until(noAccount.retryAt)
@@ -582,13 +588,15 @@ func (l *routeLoop) failureFrom(item pool.Item, classified *pool.Classified, cau
 		message = "the upstream request failed"
 	}
 	return &FailureError{
-		Status:       status,
-		Kind:         classified.Kind,
-		Code:         classified.Code,
-		Message:      message,
-		LastProvider: item.Provider,
-		RetryAfter:   classified.RetryAfter,
-		Cause:        cause,
+		Status:        status,
+		Kind:          classified.Kind,
+		Code:          classified.Code,
+		Message:       message,
+		LastProvider:  item.Provider,
+		LastAccountID: item.ID,
+		Attempts:      l.index,
+		RetryAfter:    classified.RetryAfter,
+		Cause:         cause,
 	}
 }
 
@@ -634,8 +642,8 @@ func (l *routeLoop) recordFailure(item pool.Item, attemptNumber int, classified 
 // The observer list lives on the Executor, so the loop carries a reference
 // rather than reaching back through a pointer that may be nil in tests.
 func (l *routeLoop) emit(record AttemptRecord) {
-	if l.observers == nil {
-		return
+	if l.request.OnAttempt != nil {
+		l.request.OnAttempt(record)
 	}
 	for _, observer := range l.observers {
 		observer(record)

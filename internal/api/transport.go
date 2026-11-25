@@ -269,6 +269,9 @@ func (s *Server) serveChat(w http.ResponseWriter, r *http.Request, req *provider
 	// Record the request before dispatching so a long stream is visible in the
 	// console while it is still running.
 	logEntry := s.beginRequest(r, requestID, protocol, req, model)
+	if s.store != nil && s.cfg.Logging.RequestLogEnabled {
+		execReq.OnAttempt = logEntry.recordAttempt
+	}
 	// Carry the armor decision so the error path can report it too.
 	decisionCopy := armorDecision
 	logEntry.armorDecision = &decisionCopy

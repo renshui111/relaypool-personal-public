@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: deploy/Dockerfile
       args:
-        APP_VERSION: ${RELAYPOOL_VERSION:-personal-announcements-20261116}
+        APP_VERSION: ${RELAYPOOL_VERSION:-personal-routing-20261125}
         APP_COMMIT: ${RELAYPOOL_COMMIT:-unknown}
     image: relaypool:personal
     container_name: relaypool

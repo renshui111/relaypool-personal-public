@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -114,8 +115,36 @@ INSERT INTO request_logs (
 	return nil
 }
 
+type logExecer interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
 // FinishRequest finalizes a request row with its outcome.
-func (s *Store) FinishRequest(ctx context.Context, r RequestLog) error {
+func (s *Store) FinishRequest(ctx context.Context, r RequestLog, attempts ...RequestAttempt) error {
+	if len(attempts) == 0 {
+		return finishRequest(ctx, s.db, r)
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := finishRequest(ctx, tx, r); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM request_attempts WHERE request_id = ?", r.ID); err != nil {
+		return err
+	}
+	for _, attempt := range attempts {
+		attempt.RequestID = r.ID
+		if err := recordAttempt(ctx, tx, attempt); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func finishRequest(ctx context.Context, db logExecer, r RequestLog) error {
 	if strings.TrimSpace(r.ID) == "" {
 		return fmt.Errorf("store: finish request requires an id")
 	}
@@ -127,7 +156,7 @@ func (s *Store) FinishRequest(ctx context.Context, r RequestLog) error {
 	if strings.TrimSpace(status) == "" {
 		status = StatusOK
 	}
-	res, err := s.db.ExecContext(ctx, `
+	res, err := db.ExecContext(ctx, `
 UPDATE request_logs SET
   finished_at = ?, status = ?, stream = ?, mapped_model = ?, account_id = ?, provider = ?,
   routing = ?, prompt_tokens = ?, completion_tokens = ?, total_tokens = ?, credits = ?,
@@ -148,6 +177,10 @@ WHERE id = ?`,
 // RecordAttempt appends one account attempt. Failures here are non-fatal for
 // the caller's request path: diagnostics must never break serving.
 func (s *Store) RecordAttempt(ctx context.Context, a RequestAttempt) error {
+	return recordAttempt(ctx, s.db, a)
+}
+
+func recordAttempt(ctx context.Context, db logExecer, a RequestAttempt) error {
 	if strings.TrimSpace(a.RequestID) == "" {
 		return fmt.Errorf("store: attempt requires a request id")
 	}
@@ -158,7 +191,7 @@ func (s *Store) RecordAttempt(ctx context.Context, a RequestAttempt) error {
 		}
 		a.ID = "att_" + strings.TrimPrefix(id, "req_")
 	}
-	_, err := s.db.ExecContext(ctx, `
+	_, err := db.ExecContext(ctx, `
 INSERT INTO request_attempts (
   id, request_id, attempt_index, account_id, provider, status,
   error_kind, error_code, error_message, latency_ms, started_at, finished_at

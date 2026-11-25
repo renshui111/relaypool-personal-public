@@ -371,27 +371,27 @@ func (p *Pool) Acquire(id string) bool {
 
 // AcquireTarget 原子获取指定账号和其健康版本，避免人工检查被调度到其他账号。
 // 检查可越过旧故障，但仍遵守并发上限，也不会修改人工启停状态。
-func (p *Pool) AcquireTarget(id, model string, probe bool) (Item, bool) {
+func (p *Pool) AcquireTarget(id, model string, probe bool) PickResult {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	idx, ok := p.indexed[id]
 	if !ok {
-		return Item{}, false
+		return PickResult{Reason: ReasonNoAccounts}
 	}
 	item := &p.items[idx]
-	if itemSaturated(*item) {
-		return Item{}, false
-	}
 	if !probe {
-		if !item.Enabled || (item.Ready != nil && !*item.Ready) || itemDown(*item, time.Now()) {
-			return Item{}, false
+		if !item.Enabled || (item.Ready != nil && !*item.Ready) {
+			return PickResult{Reason: ReasonNoAccounts}
 		}
-		if until := item.ModelDownUntil[routeModel(model)]; until.After(time.Now()) {
-			return Item{}, false
+		if until := resumeAt(*item, RouteQuery{PublicModel: model}); until.After(time.Now()) {
+			return PickResult{Reason: ReasonAllCooling, RetryAt: until}
 		}
+	}
+	if itemSaturated(*item) {
+		return PickResult{Reason: ReasonAllSaturated}
 	}
 	item.InFlight++
-	return item.Clone(), true
+	return PickResult{Item: item.Clone(), OK: true}
 }
 
 // Release decrements the in-flight counter.
